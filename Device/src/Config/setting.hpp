@@ -39,12 +39,12 @@
 
 // Définir exactement UNE de ces macros pour activer le capteur correspondant.
 
-//#define POLARH10 1 ///< @brief Active le capteur Polar H10.
-#define MAC_ADDRESS "c7:6f:37:f6:01:36" ///< @brief Adresse MAC Bluetooth Low Energy du Polar H10 cible (format "xx:xx:xx:xx:xx:xx").
+// #define POLARH10 1 ///< @brief Active le capteur Polar H10.
+// #define MAC_ADDRESS "c7:6f:37:f6:01:36" ///< @brief Adresse MAC Bluetooth Low Energy du Polar H10 cible (format "xx:xx:xx:xx:xx:xx").
 
-//#define MINIMU_9_V6 1 ///< @brief Active le capteur MinIMU-9 v6.
+#define MINIMU_9_V6 1 ///< @brief Active le capteur MinIMU-9 v6.
 
-#define _INMP441_ 1 ///< @brief Active le capteur INMP441.
+//#define _INMP441_ 1 ///< @brief Active le capteur INMP441.
 
 /**
  * @}

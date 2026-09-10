@@ -73,7 +73,7 @@ std::string MinIMU_9_v6::formatData(MinIMU_9_v6Data & data, int stadiumBleacherI
         float ay2 = data.accelerometer[index][1] * data.accelerometer[index][1];
         float az2 = data.accelerometer[index][2] * data.accelerometer[index][2];
         float a = sqrt(ax2 + ay2 + az2);
-        arrayA.add(a);
+        arrayA.add(serialized(String(a, 2)));
     }
 
     // Sérialisation en chaîne JSON + ajout d'un saut de ligne comme délimiteur de message
@@ -201,10 +201,10 @@ void MinIMU_9_v6::readRegister(uint8_t address, uint8_t registerAddress, int * o
     
     // Lecture
     Wire.requestFrom((uint8_t) address, (uint8_t) 6);
-    out[0] = Wire.read() | (Wire.read() << 8);
-    out[1] = Wire.read() | (Wire.read() << 8);
-    out[2] = Wire.read() | (Wire.read() << 8);
-    
+    out[0] = (int16_t)(Wire.read() | (Wire.read() << 8));
+    out[1] = (int16_t)(Wire.read() | (Wire.read() << 8));
+    out[2] = (int16_t)(Wire.read() | (Wire.read() << 8));
+
     return ;
 }
 
