@@ -40,11 +40,20 @@
 // Définir exactement UNE de ces macros pour activer le capteur correspondant.
 
 // #define POLARH10 1 ///< @brief Active le capteur Polar H10.
-// #define MAC_ADDRESS "c7:6f:37:f6:01:36" ///< @brief Adresse MAC Bluetooth Low Energy du Polar H10 cible (format "xx:xx:xx:xx:xx:xx").
+ #define MAC_ADDRESS "c7:6f:37:f6:01:36" ///< @brief Adresse MAC Bluetooth Low Energy du Polar H10 cible (format "xx:xx:xx:xx:xx:xx").
 
-#define MINIMU_9_V6 1 ///< @brief Active le capteur MinIMU-9 v6.
+//#define MINIMU_9_V6 1 ///< @brief Active le capteur MinIMU-9 v6.
 
-//#define _INMP441_ 1 ///< @brief Active le capteur INMP441.
+#define _INMP441_ 1 ///< @brief Active le capteur INMP441.
+
+// Méthode de mesure du INMP441 :
+//   1 = Leq pondéré A en dB SPL sur toute la période d'acquisition (méthode esp32-i2s-slm : 48 kHz, égaliseur INMP441, pondération A)
+//   0 = ancienne mesure (RMS d'un bloc de 64 ms à 16 kHz, échelle arbitraire)
+#define INMP441_SLM 1 ///< @brief Méthode de mesure du capteur INMP441.
+
+// Correction linéaire du niveau mesuré par le INMP441 (méthode SLM uniquement), en dB.
+// Valeur = niveau du sonomètre de référence - niveau mesuré par le capteur, à conditions identiques.
+#define INMP441_CALIBRATION_DB -22.0 ///< @brief Correction de calibration du INMP441 (dB).
 
 /**
  * @}
@@ -54,16 +63,16 @@
 //  Paramètres de debug
 // ============================================================================
 
-#define DEBUG               1 ///< @brief Activation des messages de debug sur le port série (Serial).
+#define DEBUG               0 ///< @brief Activation des messages de debug sur le port série (Serial).
 #define BAUDRATE_DEBUG 115200 ///< @brief Vitesse de communication UART en bauds.
 
 // ============================================================================
 //  Paramètres du Duty Cycle
 // ============================================================================
 
-#define DUTY_CYCLE_TIME 15000 ///< @brief Interval de temps d'envoi des données pour respecter le duty cycle
+#define DUTY_CYCLE_TIME 14500 ///< @brief Interval de temps d'envoi des données pour respecter le duty cycle
 
-// ============================================================================
+// ============================================================================ 
 //  Paramètres UART
 // ============================================================================
 
@@ -113,7 +122,8 @@
 //  Capacité du buffer de données
 // ============================================================================
 
-#define NB_VALUE_FOR_SENSOR (DUTY_CYCLE_TIME / ACQUISITION_TIME) ///< @brief Nombre de valeur du buffer pour un capteur
+//#define NB_VALUE_FOR_SENSOR (DUTY_CYCLE_TIME / ACQUISITION_TIME) ///< @brief Nombre de valeur du buffer pour un capteur
+#define NB_VALUE_FOR_SENSOR ((DUTY_CYCLE_TIME + ACQUISITION_TIME - 1) / ACQUISITION_TIME)
 #if NB_SENSOR <= 0
 #error "Erreur de configuration: Le nombre de capteur est invalide"
 #else

@@ -14,6 +14,9 @@
  *   "a" : [<float>],
  * }
  * @endcode
+ *
+ * Chaque valeur de "a" est le maximum de |‖a‖ - g| (accélération dynamique, en m/s²) observé sur une fenêtre d'acquisition de ACQUISITION_TIME ms,
+ * g étant la norme mesurée au repos lors de la calibration au démarrage.
  */
 
 #ifndef _MINIMU_9_V6_HPP_
@@ -64,6 +67,12 @@
 #define GYROSCOPE_SENSITIVITY     0.00875  ///< @brief Sensibilité du gyroscope.
 #define MAGNETOMETER_SENSITIVITY  6842     ///< @brief Sensibilité du magnétomètre.
 
+#define ACCELEROMETER_SAMPLE_PERIOD 10 ///< @brief Période d'échantillonnage de l'accéléromètre pendant une fenêtre d'acquisition (en milliseconde).
+
+#define GRAVITY_CALIBRATION_DURATION 2000 ///< @brief Durée de la calibration de la gravité au démarrage, capteur immobile (en milliseconde).
+#define GRAVITY_CALIBRATION_MIN      8.0  ///< @brief Norme minimale acceptée pour la gravité calibrée (m/s²).
+#define GRAVITY_CALIBRATION_MAX      11.5 ///< @brief Norme maximale acceptée pour la gravité calibrée (m/s²).
+
 /*
  * @}
  */
@@ -90,8 +99,7 @@ class MinIMU_9_v6: public AccelerometerGyroscope
         {
             int dataIndex = 0;                               ///< @brief Taille courante des buffers de données.
             float accelerometer[NB_VALUE][3] = {-1, -1, -1}; ///< @brief Buffer de données de l'accéléromètre.
-            float gyroscope[NB_VALUE][3]     = {-1, -1, -1}; ///< @brief Buffer de données du gyroscope.
-            float magnetometer[NB_VALUE][3]  = {-1, -1, -1}; ///< @brief Buffer de données du magnétomètre.
+            float accelerationMax[NB_VALUE]  = {};           ///< @brief Buffer du maximum de |‖a‖ - g| sur chaque fenêtre d'acquisition.
         };
         using MinIMU_9_v6Data = struct MinIMU_9_v6Data;
 
@@ -111,6 +119,8 @@ class MinIMU_9_v6: public AccelerometerGyroscope
 
     private:
         MinIMU_9_v6Data data;  ///< @brief Dernières données collectées.
+
+        float gravity = MinIMU_9_v6::g1; ///< @brief Norme de la gravité mesurée au repos lors de la calibration (m/s²).
         
         int stadiumBleacherId; ///< @brief Identifiant de la tribune du stade.
 
@@ -168,6 +178,11 @@ class MinIMU_9_v6: public AccelerometerGyroscope
          * @copydoc Sensor::end()
          */
         void end() override;
+
+        /**
+         * @brief Calibre la gravité : moyenne de la norme de l'accélération, capteur immobile.
+         */
+        void calibrateGravity();
 
         /**
          * @brief Lis le registre de l'addresse donné.

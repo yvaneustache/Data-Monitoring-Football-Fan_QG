@@ -55,7 +55,7 @@ MinIMU_9_v6::~MinIMU_9_v6()
 std::string MinIMU_9_v6::formatData(MinIMU_9_v6Data & data, int stadiumBleacherId)
 {
 #if DEBUG == 1
-    MinIMU_9_v6::logger->info(Logger::logString("[MinIMU-9 V6] formatData - Accelerometre: [%f, %f, %f] Gyroscope: [%f, %f, %f] Magnetometre: [%f, %f, %f]\n", data.accelerometer[0], data.accelerometer[1], data.accelerometer[2], data.gyroscope[0], data.gyroscope[1], data.gyroscope[2], data.magnetometer[0], data.magnetometer[1], data.magnetometer[2]));
+    MinIMU_9_v6::logger->info(Logger::logString("[MinIMU-9 V6] formatData - Accelerometre (dernière mesure): [%f, %f, %f]\n", data.accelerometer[data.dataIndex][0], data.accelerometer[data.dataIndex][1], data.accelerometer[data.dataIndex][2]));
 #endif
 
     std::string jsonString;
@@ -67,14 +67,7 @@ std::string MinIMU_9_v6::formatData(MinIMU_9_v6Data & data, int stadiumBleacherI
     json["id"] = stadiumBleacherId;
     JsonArray arrayA = json["a"].to<JsonArray>();
     for (int index=0; index < NB_VALUE; index++)
-    {
-        // Calcul de la norme du vecteur accélération
-        float ax2 = data.accelerometer[index][0] * data.accelerometer[index][0];
-        float ay2 = data.accelerometer[index][1] * data.accelerometer[index][1];
-        float az2 = data.accelerometer[index][2] * data.accelerometer[index][2];
-        float a = sqrt(ax2 + ay2 + az2);
-        arrayA.add(serialized(String(a, 2)));
-    }
+        arrayA.add(serialized(String(data.accelerationMax[index], 2)));
 
     // Sérialisation en chaîne JSON + ajout d'un saut de ligne comme délimiteur de message
     serializeJson(json, jsonString);
@@ -99,12 +92,58 @@ void MinIMU_9_v6::begin()
     MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] begin - Configuration des registres"));
 #endif
 
-    // Configuration des registres
+    // Configuration des registres : seul l'accéléromètre est activé
+    // (gyroscope et magnétomètre restent dans leur état par défaut, hors tension)
     writeRegister(LSM6DS33_ADDRESS, REGISTER_ACCELEROMETER_NUMBER, REGISTER_ACCELEROMETER_VALUE);
-    writeRegister(LSM6DS33_ADDRESS, REGISTER_GYROSCOPE_NUMBER, REGISTER_GYROSCOPE_VALUE);
-    writeRegister(LIS3MDL_ADDRESS, REGISTER_MAGNETOMETER_NUMBER, REGISTER_MAGNETOMETER_VALUE);
+
+    // Calibration de la gravité, capteur immobile
+    this->calibrateGravity();
 
     Sensor::state = ConnectionState::CONNECTED;
+
+    return ;
+}
+
+
+
+void MinIMU_9_v6::calibrateGravity()
+{
+    int rawData[3];
+    double sumNorm = 0;
+    int samples = 0;
+
+    // Laisse le temps aux registres de prendre effet avant la première lecture
+    delay(100);
+
+    unsigned long calibrationStart = millis();
+    while (millis() - calibrationStart < GRAVITY_CALIBRATION_DURATION)
+    {
+        readRegister(LSM6DS33_ADDRESS, REGISTER_ACCELEROMETER_OUT, rawData);
+
+        double sumSquare = 0;
+        for (int i=0; i < 3; i++)
+        {
+            double a = rawData[i] * ACCELEROMETER_SENSITIVITY * MinIMU_9_v6::g1;
+            sumSquare += a * a;
+        }
+        sumNorm += sqrt(sumSquare);
+        samples++;
+
+        delay(ACCELEROMETER_SAMPLE_PERIOD);
+    }
+
+    float measuredGravity = (samples > 0) ? (float) (sumNorm / samples) : 0;
+
+    // Valeur hors plage (capteur en mouvement ou défaillant) : conservation de la gravité théorique
+    if ((measuredGravity < GRAVITY_CALIBRATION_MIN) || (measuredGravity > GRAVITY_CALIBRATION_MAX))
+    {
+        MinIMU_9_v6::logger->warning(Logger::logString("[MINIMU-9 V6] calibrateGravity - Gravité mesurée invalide (%f m/s² sur %d échantillons), utilisation de %f m/s²\n", measuredGravity, samples, MinIMU_9_v6::g1));
+        this->gravity = MinIMU_9_v6::g1;
+        return ;
+    }
+
+    this->gravity = measuredGravity;
+    MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] calibrateGravity - Gravité calibrée: %f m/s² (%d échantillons)\n", this->gravity, samples));
 
     return ;
 }
@@ -136,33 +175,33 @@ void MinIMU_9_v6::update()
     MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] update - Mise à jour du capteur\n"));
 #endif
 
-    // Lecture de l'accéléromètre
-    readRegister(LSM6DS33_ADDRESS, REGISTER_ACCELEROMETER_OUT, rawData);
-    // Conversion de la valeur brute
-    for (int i=0; i < 3; i++)
-        this->data.accelerometer[this->data.dataIndex][i] = rawData[i] * ACCELEROMETER_SENSITIVITY * MinIMU_9_v6::g1;
+    // Échantillonnage de l'accéléromètre sur toute la fenêtre d'acquisition
+    // et conservation du maximum de |‖a‖ - g| (accélération dynamique)
+    float accelerationMax = 0;
+    unsigned long windowStart = millis();
+    do
+    {
+        // Lecture de l'accéléromètre
+        readRegister(LSM6DS33_ADDRESS, REGISTER_ACCELEROMETER_OUT, rawData);
+        // Conversion de la valeur brute
+        for (int i=0; i < 3; i++)
+            this->data.accelerometer[this->data.dataIndex][i] = rawData[i] * ACCELEROMETER_SENSITIVITY * MinIMU_9_v6::g1;
+
+        // Calcul de la norme du vecteur accélération moins la gravité calibrée
+        float ax2 = this->data.accelerometer[this->data.dataIndex][0] * this->data.accelerometer[this->data.dataIndex][0];
+        float ay2 = this->data.accelerometer[this->data.dataIndex][1] * this->data.accelerometer[this->data.dataIndex][1];
+        float az2 = this->data.accelerometer[this->data.dataIndex][2] * this->data.accelerometer[this->data.dataIndex][2];
+        float a = fabsf(sqrtf(ax2 + ay2 + az2) - this->gravity);
+        if (a > accelerationMax)
+            accelerationMax = a;
+
+        delay(ACCELEROMETER_SAMPLE_PERIOD);
+    } while (millis() - windowStart < ACQUISITION_TIME);
+
+    this->data.accelerationMax[this->data.dataIndex] = accelerationMax;
 
 #if DEBUG == 1
-    MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] update - Accelerometre: x:%f y:%f z:%f", this->data.accelerometer[this->data.dataIndex][0], this->data.accelerometer[this->data.dataIndex][1], this->data.accelerometer[this->data.dataIndex][2]));
-#endif
-    
-    // Lecture du gyroscope
-    readRegister(LSM6DS33_ADDRESS, REGISTER_GYROSCOPE_OUT, rawData);
-    // Conversion de la valeur brute
-    for (int i=0; i < 3; i++)
-        this->data.gyroscope[this->data.dataIndex][i] = rawData[i] * GYROSCOPE_SENSITIVITY;
-
-#if DEBUG == 1
-    MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] update - Gyroscope: x:%f y:%f z:%f", this->data.gyroscope[this->data.dataIndex][0], this->data.gyroscope[this->data.dataIndex][1], this->data.gyroscope[this->data.dataIndex][2]));
-#endif
-
-    // Lecture du magnétomètre
-    readRegister(LIS3MDL_ADDRESS, REGISTER_MAGNETOMETER_OUT, rawData);
-    for (int i=0; i < 3; i++)
-        this->data.magnetometer[this->data.dataIndex][i] = (float) (rawData[i] / MAGNETOMETER_SENSITIVITY);
-
-#if DEBUG == 1
-    MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] update - Magnetometre: x:%f y:%f z:%f", this->data.magnetometer[this->data.dataIndex][0], this->data.magnetometer[this->data.dataIndex][1], this->data.magnetometer[this->data.dataIndex][2]));
+    MinIMU_9_v6::logger->info(Logger::logString("[MINIMU-9 V6] update - Accelerometre: x:%f y:%f z:%f max |a-g|:%f", this->data.accelerometer[this->data.dataIndex][0], this->data.accelerometer[this->data.dataIndex][1], this->data.accelerometer[this->data.dataIndex][2], accelerationMax));
 #endif
 
     // Mise à jour des données
@@ -172,7 +211,7 @@ void MinIMU_9_v6::update()
 #if DEBUG == 1
     MinIMU_9_v6::logger->info(Logger::logString("[MinIMU-9 V6] update - Nouvelle mesure sérialisée: %s", format.c_str()));
 #else
-    MinIMU_9_v6::logger->info(Logger::logString("Accéléromètre: %f,%f,%f\nGyroscope: %f,%f,%f\nMagnétomètre: %f,%f,%f\n", this->data.accelerometer[this->data.dataIndex][0], this->data.accelerometer[this->data.dataIndex][1], this->data.accelerometer[this->data.dataIndex][2], this->data.gyroscope[this->data.dataIndex][0], this->data.gyroscope[this->data.dataIndex][1], this->data.gyroscope[this->data.dataIndex][2], this->data.magnetometer[this->data.dataIndex][0], this->data.magnetometer[this->data.dataIndex][1], this->data.magnetometer[this->data.dataIndex][2]));
+    MinIMU_9_v6::logger->info(Logger::logString("Accéléromètre: %f,%f,%f max |a-g|: %f\n", this->data.accelerometer[this->data.dataIndex][0], this->data.accelerometer[this->data.dataIndex][1], this->data.accelerometer[this->data.dataIndex][2], this->data.accelerationMax[this->data.dataIndex]));
 #endif
 
     this->data.dataIndex++;

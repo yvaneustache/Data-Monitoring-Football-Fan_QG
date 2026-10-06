@@ -127,6 +127,9 @@ void loop()
     // Mise à jour de la LED
     ledManager->toggle();
 
+    // Début de l'itération
+    unsigned long loopStartMs = millis();
+
     // Mise à jour du capteur
     sensor->update();
 
@@ -178,8 +181,10 @@ void loop()
 #endif
     }
 
-    // Délai entre chaque acquisition
-    delay(ACQUISITION_TIME);
+    // Délai entre chaque acquisition (déduction du temps déjà passé dans l'itération)
+    unsigned long elapsedMs = millis() - loopStartMs;
+    if (elapsedMs < ACQUISITION_TIME)
+        delay(ACQUISITION_TIME - elapsedMs);
 
     return ;
 }
