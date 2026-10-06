@@ -3,251 +3,189 @@
  *
  * @brief Logique de la page d'accueil du dashboard.
  *
- * Demande la liste des supporters connectés au serveur, affiche une carte par supporter et gère dynamiquement les connexions et déconnexions en temps réel via SocketIO.
+ * Affiche une carte par supporter et par tribune connectés, avec leur dernière mesure mise à jour en temps réel, et les cartes de comparaison dès que deux supporters ou deux tribunes sont connectés.
  */
 
 // ============================================================================
 //  Import des bibliothèques
 // ============================================================================
 
-import { supporterCard, stadiumBleacherCard, comparisonCard } from "../Utils/element.js";
+import { supporterCard, stadiumBleacherCard, comparisonCard, setCardValue } from "../Utils/element.js";
+import { bindLiveIndicator } from "../Utils/timeChart.js";
 
 // ============================================================================
 //  Initialisation
 // ============================================================================
 
 const socket = io();
+bindLiveIndicator(socket);
+
+const gridSupporter       = document.getElementById("gridSupporter");
+const gridStadiumBleacher = document.getElementById("gridStadiumBleacher");
 
 if (window.DEBUG)
-    console.log("[Index] Initialisation - Demande de la liste des supporters connectés");
+    console.log("[Index] Initialisation - Demande de la liste des supporters et des tribunes connectés");
 
-// Demande de la liste des supporters actuellement connectés
 socket.emit("getSupporter");
-// Demande de la liste des tribunes actuellement connectés
 socket.emit("getStadiumBleacher");
 
 // ============================================================================
-//  Événements SocketIO
+//  Événements SocketIO : supporters
 // ============================================================================
 
 /**
- * @brief Réception de la liste initiale des supporters connectés.
- *
- * @param {Array<{id: number, name: string}>} dataList Liste des supporters actuellement connectés.
+ * @brief Réception de la liste des supporters connectés.
  */
 socket.on("getSupporterResponse", (dataList) =>
 {
     if (window.DEBUG)
         console.log(`[Index] getSupporterResponse - Réception de ${dataList.length} supporter(s)`);
 
-    const grid = document.getElementById("gridSupporter");
-
     for (const data of dataList)
-    {
-        if (window.DEBUG)
-            console.log(`[Index] getSupporterResponse - Ajout du supporter id=${data.id} (${data.name})`);
+        _addSupporter(data);
 
-        const element = supporterCard(data.id, data.name, data.color);
-        grid.appendChild(element);
-    }
-
-    // La carte de comparaison n'est pertinente qu'à partir de 2 supporters
-    if (dataList.length >= 2)
-    {
-        if (window.DEBUG)
-            console.log("[Index] getSupporterResponse - Ajout de la carte de comparaison");
-
-        const comparison = comparisonCard("Supporter", "heart_rate", "Fréquence cardiaque");
-        grid.appendChild(comparison);
-    }
+    // Dernières valeurs
+    socket.emit("getSupporterHeartRateAll");
 });
 
 
 
 /**
- * @brief Connexion d'un nouveau supporter en temps réel.
- *
- * @param {{id: number, name: string, color: string}} data Données du supporter qui vient de se connecter.
+ * @brief Dernières valeurs de fréquence cardiaque.
+ */
+socket.on("getSupporterHeartRateAllResponse", (dataList) =>
+{
+    for (const data of dataList)
+        _setLast(document.getElementById("s" + data.id), "heart_rate", data.history);
+});
+
+
+
+/**
+ * @brief Connexion d'un nouveau supporter.
  */
 socket.on("supporterConnection", (data) =>
 {
     if (window.DEBUG)
         console.log(`[Index] supporterConnection - Nouveau supporter id=${data.id} (${data.name})`);
 
-    const grid    = document.getElementById("gridSupporter");
-    const element = supporterCard(data.id, data.name, data.color);
-
-    const comparisonEl = grid.querySelector("#comparisonSupporter");
-
-    if (comparisonEl !== null)
-    {
-        // Insère la nouvelle carte avant la carte de comparaison existante
-        grid.insertBefore(element, comparisonEl);
-    }
-    else
-    {
-        grid.appendChild(element);
-
-        // Compte les cartes de supporter présentes (exclut #comparisonSupporter)
-        const supporterCount = grid.querySelectorAll(".card:not(#comparisonSupporter)").length;
-
-        // Crée la carte de comparaison dès que deux supporters sont affichés
-        if (supporterCount >= 2)
-        {
-            if (window.DEBUG)
-                console.log("[Index] supporterConnection - Ajout de la carte de comparaison");
-
-            const comparison = comparisonCard("Supporter", "heart_rate", "Fréquence cardiaque");
-            grid.appendChild(comparison);
-        }
-    }
+    _addSupporter(data);
 });
 
 
 
 /**
- * @brief Déconnexion d'un supporter en temps réel.
- *
- * @param {number} id Identifiant du supporter déconnecté.
+ * @brief Nouvelle mesure de fréquence cardiaque.
+ */
+socket.on("newSupporterHeartRate", (data) =>
+{
+    _addSupporter(data);
+    _setLast(document.getElementById("s" + data.id), "heart_rate", data.points);
+});
+
+
+
+/**
+ * @brief Déconnexion d'un supporter.
  */
 socket.on("supporterDisconnection", (id) =>
 {
-    if (window.DEBUG)
-        console.log(`[Index] supporterDisconnection - Déconnexion du supporter id=${id}`);
+    const card = document.getElementById("s" + id);
+    if (card)
+        card.remove();
 
-    const grid        = document.getElementById("gridSupporter");
-    const cardToRemove = grid.querySelector("#s" + id);
-
-    if (cardToRemove)
-        cardToRemove.remove();
-
-    // Retire la carte de comparaison si moins de 2 supporters restent
-    const supporterCount = grid.querySelectorAll(".card:not(#comparisonSupporter)").length;
-
-    if (supporterCount < 2)
-    {
-        const comparisonEl = grid.querySelector("#comparisonSupporter");
-        if (comparisonEl)
-        {
-            if (window.DEBUG)
-                console.log("[Index] supporterDisconnection - Suppression de la carte de comparaison (moins de 2 supporters)");
-
-            comparisonEl.remove();
-        }
-    }
+    _updateSupporters();
 });
 
-
+// ============================================================================
+//  Événements SocketIO : tribunes
+// ============================================================================
 
 /**
- * @brief Réception de la liste initiale des tribunes connectés.
- *
- * @param {Array<{id: number, name: string}>} dataList Liste des tribunes actuellement connectés.
+ * @brief Réception de la liste des tribunes connectées.
  */
 socket.on("getStadiumBleacherResponse", (dataList) =>
 {
     if (window.DEBUG)
         console.log(`[Index] getStadiumBleacherResponse - Réception de ${dataList.length} tribune(s)`);
 
-    const grid = document.getElementById("gridStadiumBleacher");
-
     for (const data of dataList)
-    {
-        if (window.DEBUG)
-            console.log(`[Index] getStadiumBleacherResponse - Ajout de la tribune id=${data.id} (${data.name})`);
+        _addStadiumBleacher(data);
 
-        const element = stadiumBleacherCard(data.id, data.name, data.color);
-        grid.appendChild(element);
-    }
-
-    // La carte de comparaison n'est pertinente qu'à partir de 2 tribunes
-    if (dataList.length >= 2)
-    {
-        if (window.DEBUG)
-            console.log("[Index] getStadiumBleacherResponse - Ajout de la carte de comparaison");
-
-        const comparison1 = comparisonCard("StadiumBleacher", "accelerometer", "Mouvement");
-        const comparison2 = comparisonCard("StadiumBleacher", "acoustic", "Acoustique");
-        grid.appendChild(comparison1);
-        grid.appendChild(comparison2);
-    }
+    // Dernières valeurs
+    socket.emit("getStadiumBleacherAcousticAll");
+    socket.emit("getStadiumBleacherAccelerometerAll");
 });
 
 
 
 /**
- * @brief Connexion d'une nouvelle tribune en temps réel.
- *
- * @param {{id: number, name: string, color: string}} data Données de la tribune qui vient de se connecter.
+ * @brief Dernières valeurs acoustiques.
+ */
+socket.on("getStadiumBleacherAcousticAllResponse", (dataList) =>
+{
+    for (const data of dataList)
+        _setLast(document.getElementById("b" + data.id), "acoustic", data.history);
+});
+
+
+
+/**
+ * @brief Dernières valeurs de vibration.
+ */
+socket.on("getStadiumBleacherAccelerometerAllResponse", (dataList) =>
+{
+    for (const data of dataList)
+        _setLast(document.getElementById("b" + data.id), "accelerometer", data.history);
+});
+
+
+
+/**
+ * @brief Connexion d'une nouvelle tribune.
  */
 socket.on("stadiumBleacherConnection", (data) =>
 {
     if (window.DEBUG)
         console.log(`[Index] stadiumBleacherConnection - Nouvelle tribune id=${data.id} (${data.name})`);
 
-    const grid    = document.getElementById("gridStadiumBleacher");
-    const element = stadiumBleacherCard(data.id, data.name, data.color);
-
-    const comparisonEl = grid.querySelector("#comparisonStadiumBleacher");
-
-    if (comparisonEl !== null)
-    {
-        // Insère la nouvelle carte avant la carte de comparaison existante
-        grid.insertBefore(element, comparisonEl);
-    }
-    else
-    {
-        grid.appendChild(element);
-
-        // Compte les cartes de tribunes présentes (exclut #comparisonStadiumBleacher)
-        const stadiumBleacherCount = grid.querySelectorAll(".card:not(#comparisonSupporter)").length;
-
-        // Crée la carte de comparaison dès que deux tribunes sont affichés
-        if (stadiumBleacherCount >= 2)
-        {
-            if (window.DEBUG)
-                console.log("[Index] stadiumBleacherConnection - Ajout de la carte de comparaison");
-
-            const comparison1 = comparisonCard("StadiumBleacher", "accelerometer", "Mouvement");
-            const comparison2 = comparisonCard("StadiumBleacher", "acoustic", "Acoustique");
-            grid.appendChild(comparison1);
-            grid.appendChild(comparison2);
-        }
-    }
+    _addStadiumBleacher(data);
 });
 
 
 
 /**
- * @brief Déconnexion d'une tribune en temps réel.
- *
- * @param {number} id Identifiant de la tribune déconnecté.
+ * @brief Nouvelle mesure acoustique.
+ */
+socket.on("newStadiumBleacherAcoustic", (data) =>
+{
+    _addStadiumBleacher(data);
+    _setLast(document.getElementById("b" + data.id), "acoustic", data.points);
+});
+
+
+
+/**
+ * @brief Nouvelle mesure de vibration.
+ */
+socket.on("newStadiumBleacherAccelerometer", (data) =>
+{
+    _addStadiumBleacher(data);
+    _setLast(document.getElementById("b" + data.id), "accelerometer", data.points);
+});
+
+
+
+/**
+ * @brief Déconnexion d'une tribune.
  */
 socket.on("stadiumBleacherDisconnection", (id) =>
 {
-    if (window.DEBUG)
-        console.log(`[Index] stadiumBleacherDisconnection - Déconnexion de la tribune id=${id}`);
+    const card = document.getElementById("b" + id);
+    if (card)
+        card.remove();
 
-    const grid        = document.getElementById("gridStadiumBleacher");
-    const cardToRemove = grid.querySelector("#b" + id);
-
-    if (cardToRemove)
-        cardToRemove.remove();
-
-    // Retire la carte de comparaison si moins de 2 tribunes restent
-    const stadiumBleacherCount = grid.querySelectorAll(".card:not(#comparisonStadiumBleacher)").length;
-
-    if (stadiumBleacherCount < 2)
-    {
-        const comparisonEl = grid.querySelector("#comparisonStadiumBleacher");
-        if (comparisonEl)
-        {
-            if (window.DEBUG)
-                console.log("[Index] stadiumBleacherDisconnection - Suppression de la carte de comparaison (moins de 2 tribunes)");
-
-            comparisonEl.remove();
-        }
-    }
+    _updateStadiumBleachers();
 });
 
 
@@ -262,3 +200,102 @@ socket.on("serverClose", () =>
 
     window.location.href = "/";
 });
+
+// ============================================================================
+//  Fonctions internes
+// ============================================================================
+
+/**
+ * @brief Ajoute la carte d'un supporter si elle n'existe pas encore.
+ */
+function _addSupporter(data)
+{
+    if (document.getElementById("s" + data.id))
+        return ;
+
+    gridSupporter.insertBefore(supporterCard(data.id, data.name, data.color), _firstComparison(gridSupporter));
+    _updateSupporters();
+}
+
+
+
+/**
+ * @brief Ajoute la carte d'une tribune si elle n'existe pas encore.
+ */
+function _addStadiumBleacher(data)
+{
+    if (document.getElementById("b" + data.id))
+        return ;
+
+    gridStadiumBleacher.insertBefore(stadiumBleacherCard(data.id, data.name, data.color), _firstComparison(gridStadiumBleacher));
+    _updateStadiumBleachers();
+}
+
+
+
+/**
+ * @brief Met à jour le compteur et la carte de comparaison des supporters.
+ */
+function _updateSupporters()
+{
+    const count = gridSupporter.querySelectorAll(".supporter-card").length;
+    _updateSection("supporters", count, count > 1 ? "supporters connectés" : "supporter connecté");
+
+    const comparison = document.getElementById("comparisonSupporter");
+    if (count >= 2 && !comparison)
+        gridSupporter.appendChild(comparisonCard("Supporter", "heart_rate", "Fréquence cardiaque"));
+    else if (count < 2 && comparison)
+        comparison.remove();
+}
+
+
+
+/**
+ * @brief Met à jour le compteur et les cartes de comparaison des tribunes.
+ */
+function _updateStadiumBleachers()
+{
+    const count = gridStadiumBleacher.querySelectorAll(".bleacher-card").length;
+    _updateSection("bleachers", count, count > 1 ? "tribunes connectées" : "tribune connectée");
+
+    const comparisons = gridStadiumBleacher.querySelectorAll(".comparison-card");
+    if (count >= 2 && comparisons.length === 0)
+    {
+        gridStadiumBleacher.appendChild(comparisonCard("StadiumBleacher", "acoustic", "Acoustique"));
+        gridStadiumBleacher.appendChild(comparisonCard("StadiumBleacher", "accelerometer", "Vibration"));
+    }
+    else if (count < 2)
+        comparisons.forEach((card) => card.remove());
+}
+
+
+
+/**
+ * @brief Affiche le nombre d'éléments connectés d'une section.
+ */
+function _updateSection(prefix, count, label)
+{
+    document.getElementById(`${prefix}-count`).textContent = count ? `${count} ${label}` : "";
+    document.getElementById(`${prefix}-empty`).classList.toggle("hidden", count > 0);
+}
+
+
+
+/**
+ * @brief Retourne la première carte de comparaison d'une grille (les cartes sont insérées avant).
+ */
+function _firstComparison(grid)
+{
+    return grid.querySelector(".comparison-card");
+}
+
+
+
+/**
+ * @brief Affiche la dernière valeur d'une liste de points [timestamp, valeur] sur une carte.
+ */
+function _setLast(card, metric, points)
+{
+    if (points && points.length)
+        setCardValue(card, metric, points[points.length - 1][1]);
+}

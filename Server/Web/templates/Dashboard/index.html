@@ -1,22 +1,40 @@
+{% import "partials/components.html" as ui %}
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>Dashboard</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+        <title>Dashboard de monitoring</title>
+        {% include "partials/head.html" %}
         <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/index.css') }}">
     </head>
     <body>
-        <header>
-            <h1>Dashboard de monitoring</h1>
-        </header>
-        <main>
-            <h2>Données des supporters en temps réel</h2>
-            <div id="gridSupporter">
+        {% include "partials/topbar.html" %}
+        <main class="page sections">
+            <div class="page-actions">
+                {{ ui.exportButton() }}
             </div>
-            <h2>Données des tribunes en temps réel</h2>
-            <div id="gridStadiumBleacher">
-            </div>
+            <section aria-labelledby="supporters-title">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Fréquence cardiaque</p>
+                        <h2 id="supporters-title">Supporters</h2>
+                    </div>
+                    <p id="supporters-count" class="section-count"></p>
+                </div>
+                <div id="gridSupporter" class="grid grid-supporters"></div>
+                <p id="supporters-empty" class="empty-state">Aucun supporter connecté pour l'instant.</p>
+            </section>
+            <section aria-labelledby="bleachers-title">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Ambiance du stade</p>
+                        <h2 id="bleachers-title">Tribunes</h2>
+                    </div>
+                    <p id="bleachers-count" class="section-count"></p>
+                </div>
+                <div id="gridStadiumBleacher" class="grid grid-bleachers"></div>
+                <p id="bleachers-empty" class="empty-state">Aucune tribune connectée pour l'instant.</p>
+            </section>
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
         <script>

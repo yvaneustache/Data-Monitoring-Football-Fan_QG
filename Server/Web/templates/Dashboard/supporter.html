@@ -1,45 +1,36 @@
+{% import "partials/components.html" as ui %}
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>Supporter n°{{ id }}</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/supporter.css') }}">
-        <style>
-            :root 
-            {
-                --color: {{ color }};
-            }
-        </style>
+        <title>Supporter {{ name }}</title>
+        {% include "partials/head.html" %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/detail.css') }}">
     </head>
     <body>
-        <header>
-            <h2>{{ name }}</h2>
-            <h1>Supporter n°{{ id }}</h1>
-            <a href="/" class="button">← Retour</a>
-        </header>
-        <main>
-            <div id="heart-rate" class="grid">
-                <div class="card">
-                    <p class="heart-rate value">-</p>
-                    <p class="label">BPM</p>
+        {% include "partials/topbar.html" %}
+        <main class="page layout">
+            <div class="main-col">
+                <div class="title-row">
+                    <div class="title-group">
+                        {{ ui.neighbourLink("/supporter/", prevId, "Supporter précédent", "prev") }}
+                        <div class="title-group">
+                            <span class="avatar" style="background-color: {{ color }}">{{ name[:1] }}</span>
+                            <div>
+                                <p class="eyebrow">Supporter n°{{ id }}</p>
+                                <h1>{{ name }}</h1>
+                            </div>
+                        </div>
+                        {{ ui.neighbourLink("/supporter/", nextId, "Supporter suivant", "next") }}
+                    </div>
+                    <div class="title-actions">
+                        {{ ui.backButton() }}
+                    </div>
                 </div>
-                <div class="card">
-                    <p class="average value">-</p>
-                    <p class="label">Moyenne</p>
-                </div>
-                <div class="card">
-                    <p class="minimum value">-</p>
-                    <p class="label">Minimum</p>
-                </div>
-                <div class="card">
-                    <p class="maximum value">-</p>
-                    <p class="label">Maximum</p>
-                </div>
+                {{ ui.timebar() }}
+                {{ ui.measurePanel("heart-rate", "Fréquence cardiaque", "bpm") }}
             </div>
-            <div class="chart-container">
-                <canvas id="chart_heart-rate"></canvas>
-            </div>
+            {{ ui.eventsSidebar() }}
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
         <script src="{{ url_for('static', filename='lib/chart.umd.min.js') }}"></script>
@@ -47,8 +38,8 @@
             // Définition des variables dynamiques
             window.DEBUG = {{ debug }};
             window.id = {{ id }};
-            window.name = "{{ name }}";
-            window.color = "{{ color }}";
+            window.name = {{ name | tojson }};
+            window.color = {{ color | tojson }};
             window.sensorDelay = {{ sensorDelay }};
         </script>
         <script type="module" src="{{ url_for('static', filename='js/Dashboard/supporter.js') }}"></script>

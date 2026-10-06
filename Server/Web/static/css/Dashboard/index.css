@@ -1,102 +1,237 @@
 /* =========================================================================
-    Body
+    Dashboard
    ========================================================================= */
 
-body
+.sections
 {
-	background-color: var(--body-background);
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+.page-actions
+{
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -24px;
+}
+.section-head
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.section-head h2
+{
+    font-size: 40px;
+    margin-top: 4px;
+}
+.section-count, .empty-state
+{
+    font-size: 15px;
+    color: var(--text-muted);
 }
 
 /* =========================================================================
-    Header
+    Grilles de cartes
    ========================================================================= */
 
-header
+.grid
 {
-	background-color: var(--header-background);
-	display: grid;
-	grid-template-columns: 0.5fr 1fr 0.5fr;
-	justify-content: space-between;
-	align-items: center;
-	justify-items: center;
-	margin: 5vh 10vw;
-	padding: 2vh 2vw;
-	border-radius: 15px;
-	border: 5px solid var(--header-border);
+    display: grid;
+    gap: 16px;
 }
-
-
-
-h1
+.grid-supporters
 {
-	font-size: 50px;
-	text-align: center;
-	grid-column: 2;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.grid-bleachers
+{
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.grid:empty
+{
+    display: none;
 }
 
 /* =========================================================================
-    Main
+    Cartes
    ========================================================================= */
 
-h2
-{
-	font-size: 30px;
-	text-align: center;
-	text-decoration: underline;
-}
-
-
-
-/* ---------- Grille ---------- */
-#gridSupporter, #gridStadiumBleacher
-{
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	gap: 2.5vh 5vw;
-	align-items: center;
-	padding: 3vh 5vw;
-	margin-bottom: 2.5vh;
-	overflow-y: auto;
-}
-#gridSupporter
-{
-	height: 40vh;
-}
-#gridStadiumBleacher
-{
-	height: 25vh;
-}
-
-
-
-/* ---------- Carte ---------- */
 .card
 {
-	background-color: var(--card-background);
-	display: grid;
-	align-items: center;
-	border-radius: 15px;
-	border: 5px solid var(--card-border);
-	cursor: pointer;
-	padding: 2vh 2vw;
+    display: block;
+    background-color: var(--card-background);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
 }
 .card:hover
 {
-	background-color: var(--card-hover-background);
-	border-color: var(--card-hover-border);
+    border-color: var(--brand-orange);
+    box-shadow: 0 8px 24px rgba(27, 22, 21, .08);
+    transform: translateY(-2px);
 }
-.card:active
+.card-head
 {
-	transform: translateY(2px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
-.id
+.card-head.spread
 {
-	font-size: 25px;
-	font-weight: bold;
+    justify-content: space-between;
 }
 .name
 {
-	font-size: 25px;
-	font-weight: bold;
+    font-weight: 600;
+    font-size: 18px;
+}
+.id
+{
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.avatar
+{
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    color: #1B1615;
+    flex: none;
+}
+.metric
+{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1;
+    margin-top: 18px;
+    font-variant-numeric: tabular-nums;
+}
+.unit
+{
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.bar
+{
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--card-soft-background);
+    margin-top: 12px;
+    overflow: hidden;
+}
+.bar-fill
+{
+    height: 6px;
+    width: 0;
+    border-radius: 3px;
+    background-color: var(--brand-orange);
+}
+
+/* Carte de tribune, sur fond noir */
+.bleacher-card
+{
+    background-color: var(--dark-background);
+    border-color: var(--dark-background);
+}
+.bleacher-card *
+{
+    color: #FFFFFF;
+}
+.bleacher-card .name
+{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 26px;
+    text-transform: uppercase;
+}
+.badge
+{
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background-color: var(--brand-orange);
+}
+.bleacher-card .badge
+{
+    color: #1B1615;
+}
+.metrics
+{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+}
+.metric-box
+{
+    background-color: var(--dark-surface);
+    border-radius: var(--radius-small);
+    padding: 12px;
+}
+.metric-label
+{
+    font-size: 13px;
+}
+.bleacher-card .metric-label
+{
+    color: var(--dark-muted);
+}
+.metric-box .metric
+{
+    font-size: 32px;
+    margin-top: 4px;
+}
+.bleacher-card .unit
+{
+    color: var(--brand-orange);
+}
+
+/* Carte de comparaison */
+.comparison-card
+{
+    border-style: dashed;
+    border-width: 2px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-height: 120px;
+}
+.comparison-card .id
+{
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--brand-orange-dark);
+}
+.comparison-card .name
+{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 26px;
+    text-transform: uppercase;
+}
+
+@media (prefers-color-scheme: dark)
+{
+    .bleacher-card
+    {
+        border-color: var(--card-border);
+    }
 }

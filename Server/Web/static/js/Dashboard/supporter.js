@@ -3,33 +3,44 @@
  *
  * @brief Logique de la page de détail d'un supporter.
  *
- * Demande les données initiales du supporter identifié par window.id, met à jour l'affichage et le graphique à chaque nouvelle notification reçue via SocketIO.
+ * Charge l'historique de fréquence cardiaque du supporter identifié par window.id, met à jour les indicateurs et le graphique à chaque nouvelle mesure reçue via SocketIO, et gère la navigation dans le temps et les évènements du match.
  */
 
 // ============================================================================
 //  Import des bibliothèques
 // ============================================================================
 
-import { createChart } from "../Utils/element.js";
-import { subtractSeconds } from "../Utils/time.js";
+import { TimeNavigator, bindLiveIndicator } from "../Utils/timeChart.js";
+import { MatchEvents } from "../Utils/matchEvents.js";
+import { MeasurePanel, showToast } from "../Utils/measurePanel.js";
 
 // ============================================================================
 //  Initialisation
 // ============================================================================
 
 const socket = io();
+bindLiveIndicator(socket);
 
 if (window.DEBUG)
     console.log(`[Supporter] Initialisation - Demande des données du supporter id=${window.id}`);
 
-// Création du graphique de fréquence cardiaque
-const canvaHeartRate = document.getElementById("chart_heart-rate");
-const ctxHeartRate   = canvaHeartRate.getContext("2d");
-const chartHeartRate = createChart(ctxHeartRate, [{ title: window.name, color: window.color }], "BPM", 40, 200, 10);
+const timeNavigator = new TimeNavigator();
+timeNavigator.bindToolbar(document.getElementById("timebar"));
 
-// Demande des données initiales du supporter
-// window.id est utilisé explicitement pour éviter toute ambiguïté avec une
-// variable locale non définie
+const events = new MatchEvents(socket, timeNavigator, document.getElementById("events"));
+
+const panel = new MeasurePanel("heart-rate", {
+    navigator: timeNavigator,
+    events:    events,
+    label:     window.name,
+    unit:      "bpm",
+    digits:    0,
+    min:       40,
+    max:       200,
+    step:      20,
+    onReset:   () => socket.emit("resetSupporterStatistics", window.id),
+});
+
 socket.emit("getSupporterHeartRate", window.id);
 
 // ============================================================================
@@ -37,9 +48,7 @@ socket.emit("getSupporterHeartRate", window.id);
 // ============================================================================
 
 /**
- * @brief Réception des données initiales du supporter.
- *
- * @param {{id: number, heartRate: number, average: number, minimum: number, maximum: number}} data Données du supporter.
+ * @brief Réception de l'historique de fréquence cardiaque.
  */
 socket.on("getSupporterHeartRateResponse", (data) =>
 {
@@ -47,52 +56,55 @@ socket.on("getSupporterHeartRateResponse", (data) =>
         return;
 
     if (window.DEBUG)
-        console.log(`[Supporter] getSupporterHeartRateResponse - Réception des données initiales (HR=${data.heartRate} bpm)`);
+        console.log(`[Supporter] getSupporterHeartRateResponse - ${data.history.length} point(s)`);
 
-    if (data.heartRate != "")
-    {
-        _displayData(data.heartRate, data.average, data.minimum, data.maximum, "heart-rate");
-        _fillGraphicData(chartHeartRate, data.heartRate, "heart-rate");
-    }
-    else
-        _displayData(["-"], "-", "-", "-", "heart-rate");
+    panel.load(data);
 });
 
 
 
 /**
- * @brief Réception d'une nouvelle mesure en temps réel.
- *
- * @param {{id: number, heartRate: number, average: number, minimum: number, maximum: number}} data Nouvelles données du supporter.
+ * @brief Réception d'un nouvel envoi de fréquence cardiaque.
  */
 socket.on("newSupporterHeartRate", (data) =>
 {
     if (data.id !== window.id)
         return;
 
-    if (window.DEBUG)
-        console.log(`[Supporter] newSupporterHeartRate - Nouvelle mesure reçue (HR=${data.heartRate} bpm)`);
+    panel.append(data);
+});
 
-    _displayData(data.heartRate, data.average, data.minimum, data.maximum, "heart-rate");
-    _fillGraphicData(chartHeartRate, data.heartRate, "heart-rate");
+
+
+/**
+ * @brief Première donnée du supporter : la page a pu être ouverte avant, on recharge l'historique.
+ */
+socket.on("supporterConnection", (data) =>
+{
+    if (data.id === window.id)
+        socket.emit("getSupporterHeartRate", window.id);
+});
+
+
+
+/**
+ * @brief Remise à zéro des statistiques (depuis cette page ou une autre).
+ */
+socket.on("statisticsReset", (data) =>
+{
+    if (data.kind === "supporter" && data.id === window.id)
+        panel.setStatistics({ average: null, minimum: null, maximum: null });
 });
 
 
 
 /**
  * @brief Déconnexion du supporter actuellement affiché.
- *
- * @param {number} supporterId Identifiant du supporter déconnecté.
  */
 socket.on("supporterDisconnection", (supporterId) =>
 {
-    if (supporterId !== window.id)
-        return;
-
-    if (window.DEBUG)
-        console.log(`[Supporter] supporterDisconnection - Supporter id=${window.id} déconnecté`);
-
-    _showDisconnectMessage();
+    if (supporterId === window.id)
+        showToast("Supporter déconnecté");
 });
 
 
@@ -107,132 +119,3 @@ socket.on("serverClose", () =>
 
     window.location.href = "/";
 });
-
-// ============================================================================
-//  Fonctions internes
-// ============================================================================
-
-/**
- * @brief Affiche un overlay de déconnexion pendant 5 secondes.
- */
-function _showDisconnectMessage()
-{
-    if (window.DEBUG)
-        console.log("[Supporter] _showDisconnectMessage - Affichage de l'overlay de déconnexion");
-
-    // Overlay plein écran semi-transparent
-    const overlay = document.createElement("div");
-    overlay.style.position        = "fixed";
-    overlay.style.top             = "0";
-    overlay.style.left            = "0";
-    overlay.style.width           = "100vw";
-    overlay.style.height          = "100vh";
-    overlay.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-    overlay.style.display         = "flex";
-    overlay.style.alignItems      = "center";
-    overlay.style.justifyContent  = "center";
-    overlay.style.zIndex          = "9999";
-
-    // Message centré
-    const message = document.createElement("div");
-    message.textContent            = "Supporter déconnecté";
-    message.style.backgroundColor = "#fff";
-    message.style.padding          = "30px 50px";
-    message.style.borderRadius     = "8px";
-    message.style.fontSize         = "24px";
-    message.style.fontWeight       = "bold";
-    message.style.color            = "red";
-    message.style.boxShadow        = "0 10px 30px rgba(0,0,0,0.3)";
-
-    overlay.appendChild(message);
-    document.body.appendChild(overlay);
-
-    // Suppression automatique après 5 secondes
-    setTimeout(() =>
-    {
-        if (window.DEBUG)
-            console.log("[Supporter] _showDisconnectMessage - Suppression de l'overlay");
-
-        overlay.remove();
-    }, 5000);
-
-    return ;
-}
-
-
-
-/**
- * @brief Met à jour les éléments DOM affichant les statistiques du supporter.
- *
- * @param {number} data    Dernière donnée enregistré.
- * @param {number} average Moyenne enregistré.
- * @param {number} minimum Minimum enregistré.
- * @param {number} maximum Maximum enregistré.
- * @param {string} type    Type de données.
- */
-function _displayData(data, average, minimum, maximum, type)
-{
-    if (window.DEBUG)
-        console.log(`[Supporter] _displayData - DATA=${data}, avg=${average}, min=${minimum}, max=${maximum} type=${type}`);
-
-    const grid = document.getElementById(type);
-    grid.querySelector(`.${type}`).textContent = data[data.length - 1];
-    grid.querySelector(".average").textContent = average;
-    grid.querySelector(".minimum").textContent = minimum;
-    grid.querySelector(".maximum").textContent = maximum;
-
-    return ;
-}
-
-
-
-/**
- * @brief Ajoute un nouveau point de données sur le graphique.
- *
- * @param {Chart}  chart Instance Chart.js cible.
- * @param {number} data  Valeur de la donnée.
- * @param {number} type  Type de données.
- */
-function _fillGraphicData(chart, data, type)
-{
-    const now = new Date();
-
-    for (let i=data.length - 1; i >= 0; i--)
-    {
-        if (data[i] != 0)
-        { 
-            // Heure de la mesure formatée HH:MM:SS comme label de l'axe X
-            const time = new Date(subtractSeconds(now, i * window.sensorDelay));
-            const timestamp = time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-            if (window.DEBUG)
-                console.log(`[Supporter] _fillGraphicData - Ajout du point DATA=${data[i]} à t=${timestamp}`);
-
-            if (type == "heart-rate")
-            {
-                chart.data.labels.push(timestamp);
-                chart.data.datasets[0].data.push(data[i]);
-            }
-            else
-            {
-                if (window.DEBUG)
-                console.log(`[Supporter] _fillGraphicData - Type de données inconnue: ${type}`);
-            }
-
-            // Limite l'historique affiché à 100 points
-            if (chart.data.labels.length > 100)
-            {
-                if (type == "heart-rate")
-                {
-                    chart.data.labels.shift();
-                    chart.data.datasets[0].data.shift();
-                }
-            }
-        }
-    }
-
-    // Mise à jour sans animation pour un rendu temps réel fluide
-    chart.update("none");
-
-    return ;
-}

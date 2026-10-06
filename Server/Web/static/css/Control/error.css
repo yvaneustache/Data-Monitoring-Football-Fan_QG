@@ -8,9 +8,9 @@
     --panel: #ffffff;
     --text: #1f1f1f;
     --muted: #6b6b6b;
-    --accent: #2ecc71;
+    --accent: #EA670B;
     --border: #dcdde1;
-    --error-code: #e74c3c;
+    --error-code: #EA670B;
 }
 @media (prefers-color-scheme: dark)
 {
@@ -20,9 +20,9 @@
         --panel: #1a1d24;
         --text: #f1f1f1;
         --muted: #a0a0a0;
-        --accent: #2ecc71;
+        --accent: #EA670B;
         --border: #2b2f3a;
-        --error-code: #ff6b6b;
+        --error-code: #EA670B;
     }
 }
 
@@ -89,7 +89,8 @@ body
     font-size: 14px;
     border-radius: 20px;
     background: var(--accent);
-    color: white;
+    color: #1B1615;
+    font-weight: 600;
     margin-bottom: 2vh;
 }
 

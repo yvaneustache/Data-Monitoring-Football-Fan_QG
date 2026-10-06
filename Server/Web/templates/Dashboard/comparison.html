@@ -1,26 +1,49 @@
+{% import "partials/components.html" as ui %}
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
         <title>Comparaison</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/comparison.css') }}">
-        <style>
-            :root 
-            {
-                --color: {{ color }};
-            }
-        </style>
+        {% include "partials/head.html" %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/detail.css') }}">
     </head>
     <body>
-        <header>
-            <h1></h1>
-            <a href="/" class="button">← Retour</a>
-        </header>
-        <main>
-            <div class="chart-container">
-                <canvas id="chart"></canvas>
+        {% include "partials/topbar.html" %}
+        <main class="page layout">
+            <div class="main-col">
+                <div class="title-row">
+                    <div>
+                        <p class="eyebrow">Comparaison</p>
+                        <h1 id="title" style="font-size: 56px; line-height: 1">
+                            {% if data == "heart_rate" %}Fréquence cardiaque{% elif data == "accelerometer" %}Vibration{% else %}Acoustique{% endif %}
+                        </h1>
+                    </div>
+                    <div class="title-actions">
+                        <nav class="panel-actions" aria-label="Données comparées">
+                            <a class="btn {{ 'btn-primary' if data == 'heart_rate' }}" href="/comparison/Supporter/heart_rate">Cardio</a>
+                            <a class="btn {{ 'btn-primary' if data == 'accelerometer' }}" href="/comparison/StadiumBleacher/accelerometer">Vibration</a>
+                            <a class="btn {{ 'btn-primary' if data == 'acoustic' }}" href="/comparison/StadiumBleacher/acoustic">Acoustique</a>
+                        </nav>
+                        {{ ui.backButton() }}
+                    </div>
+                </div>
+                {{ ui.timebar() }}
+                <section class="panel" aria-labelledby="series-title">
+                    <div class="panel-header">
+                        <h2 id="series-title">{% if type == "Supporter" %}Tous les supporters{% else %}Toutes les tribunes{% endif %}</h2>
+                        <div class="panel-actions">
+                            <button id="show-all" class="btn" type="button">Tout afficher</button>
+                            <button id="hide-all" class="btn" type="button">Tout masquer</button>
+                        </div>
+                    </div>
+                    <div id="legend" class="legend" role="group" aria-label="Courbes affichées"></div>
+                    <p id="empty" class="empty-state">Aucune donnée reçue pour l'instant.</p>
+                    <div class="chart-box tall">
+                        <canvas id="chart" role="img" aria-label="Courbes superposées"></canvas>
+                    </div>
+                </section>
             </div>
+            {{ ui.eventsSidebar() }}
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
         <script src="{{ url_for('static', filename='lib/chart.umd.min.js') }}"></script>
@@ -28,8 +51,8 @@
             // Définition des variables dynamiques
             window.DEBUG = {{ debug }};
             window.sensorDelay = {{ sensorDelay }};
-            window.data = "{{ data }}";
-            window.type = "{{ type }}";
+            window.data = {{ data | tojson }};
+            window.type = {{ type | tojson }};
         </script>
         <script type="module" src="{{ url_for('static', filename='js/Dashboard/comparison.js') }}"></script>
     </body>

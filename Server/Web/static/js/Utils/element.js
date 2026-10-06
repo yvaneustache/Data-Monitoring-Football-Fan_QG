@@ -13,43 +13,53 @@
 /**
  * @brief Crée et retourne une carte HTML cliquable représentant un supporter.
  *
+ * La carte affiche la pastille du supporter, son nom et sa dernière fréquence cardiaque (élément .value, mis à jour par setCardValue()).
+ *
  * @param {number} id    Identifiant unique du supporter.
  * @param {string} name  Nom d'affichage du supporter.
  * @param {string} color Code couleur du supporter
  *
- * @returns {HTMLDivElement} Élément div prêt à être inséré dans le DOM.
+ * @returns {HTMLAnchorElement} Élément prêt à être inséré dans le DOM.
  */
 export function supporterCard(id, name, color)
 {
     if (DEBUG)
         console.log(`[Element] supporterCard - Création de la carte pour le supporter id=${id} (${name})`);
 
-    // Création de la carte
-    const card = document.createElement("div");
+    const card = document.createElement("a");
     card.id = "s" + id;
-    card.classList.add("card");
+    card.href = "/supporter/" + id;
+    card.classList.add("card", "supporter-card");
 
-    // Redirection vers la page de détail du supporter au clic
-    card.addEventListener("click", () =>
-        {
-            if (DEBUG)
-                console.log(`[Element] supporterCard - Clic sur la carte du supporter id=${id}, redirection vers /supporter/${id}`);
+    const head = document.createElement("div");
+    head.classList.add("card-head");
 
-            window.location.href = "/supporter/" + id;
-        });
+    const avatar = document.createElement("span");
+    avatar.classList.add("avatar");
+    avatar.style.backgroundColor = color;
+    avatar.textContent = name.charAt(0);
 
-    // Création des éléments texte
+    const identity = document.createElement("div");
     const pName = document.createElement("p");
-    pName.textContent = name;
     pName.classList.add("name");
-    pName.style.color = color;
-
+    pName.textContent = name;
     const pId = document.createElement("p");
-    pId.textContent = "Supporter n°" + id;
     pId.classList.add("id");
+    pId.textContent = "Supporter n°" + id;
+    identity.append(pName, pId);
+    head.append(avatar, identity);
 
-    card.appendChild(pName);
-    card.appendChild(pId);
+    const value = document.createElement("p");
+    value.classList.add("metric");
+    value.innerHTML = '<span class="value" data-metric="heart_rate">—</span> <span class="unit">bpm</span>';
+
+    const bar = document.createElement("div");
+    bar.classList.add("bar");
+    const fill = document.createElement("div");
+    fill.classList.add("bar-fill");
+    bar.appendChild(fill);
+
+    card.append(head, value, bar);
 
     return card;
 }
@@ -59,43 +69,43 @@ export function supporterCard(id, name, color)
 /**
  * @brief Crée et retourne une carte HTML cliquable représentant une tribune.
  *
+ * La carte affiche le nom de la tribune, son dernier niveau sonore et sa dernière vibration (éléments .value, mis à jour par setCardValue()).
+ *
  * @param {number} id    Identifiant unique de la tribune.
  * @param {string} name  Nom d'affichage de la tribune.
  * @param {string} color Code couleur de la tribune
  *
- * @returns {HTMLDivElement} Élément div prêt à être inséré dans le DOM.
+ * @returns {HTMLAnchorElement} Élément prêt à être inséré dans le DOM.
  */
 export function stadiumBleacherCard(id, name, color)
 {
     if (DEBUG)
         console.log(`[Element] stadiumBleacherCard - Création de la carte pour la tribune id=${id} (${name})`);
 
-    // Création de la carte
-    const card = document.createElement("div");
+    const card = document.createElement("a");
     card.id = "b" + id;
-    card.classList.add("card");
+    card.href = "/stadiumBleacher/" + id;
+    card.classList.add("card", "bleacher-card");
 
-    // Redirection vers la page de détail de la tribune au clic
-    card.addEventListener("click", () =>
-        {
-            if (DEBUG)
-                console.log(`[Element] stadiumBleacherCard - Clic sur la carte du supporter id=${id}, redirection vers /stadiumBleacher/${id}`);
+    const head = document.createElement("div");
+    head.classList.add("card-head", "spread");
 
-            window.location.href = "/stadiumBleacher/" + id;
-        });
-
-    // Création des éléments texte
     const pName = document.createElement("p");
-    pName.textContent = name;
     pName.classList.add("name");
-    pName.style.color = color;
+    pName.textContent = "Tribune " + name;
 
-    const pId = document.createElement("p");
-    pId.textContent = "Tribune n°" + id;
-    pId.classList.add("id");
+    const pId = document.createElement("span");
+    pId.classList.add("badge");
+    pId.textContent = "n°" + id;
+    head.append(pName, pId);
 
-    card.appendChild(pName);
-    card.appendChild(pId);
+    const metrics = document.createElement("div");
+    metrics.classList.add("metrics");
+    metrics.innerHTML =
+        '<div class="metric-box"><p class="metric-label">Acoustique</p><p class="metric"><span class="value" data-metric="acoustic">—</span> <span class="unit">dB(A)</span></p></div>' +
+        '<div class="metric-box"><p class="metric-label">Vibration</p><p class="metric"><span class="value" data-metric="accelerometer">—</span> <span class="unit">m/s²</span></p></div>';
+
+    card.append(head, metrics);
 
     return card;
 }
@@ -103,44 +113,59 @@ export function stadiumBleacherCard(id, name, color)
 
 
 /**
+ * @brief Met à jour la valeur affichée sur une carte du dashboard.
+ *
+ * @param {HTMLElement} card   Carte (supporter ou tribune).
+ * @param {string}      metric Donnée ("heart_rate", "acoustic", "accelerometer").
+ * @param {number}      value  Dernière valeur reçue.
+ */
+export function setCardValue(card, metric, value)
+{
+    const element = card ? card.querySelector(`.value[data-metric='${metric}']`) : null;
+    if (!element || value == null)
+        return ;
+
+    const digits = metric === "accelerometer" ? 2 : (metric === "acoustic" ? 1 : 0);
+    element.textContent = Number(value).toFixed(digits);
+
+    // Jauge de fréquence cardiaque, de 40 à 200 bpm
+    const fill = card.querySelector(".bar-fill");
+    if (fill && metric === "heart_rate")
+        fill.style.width = `${Math.max(0, Math.min(100, ((value - 40) / 160) * 100))}%`;
+
+    return ;
+}
+
+
+
+/**
  * @brief Crée et retourne la carte HTML de comparaison entre supporters ou tribunes.
- * 
+ *
  * @param type  Type de comparaison.
  * @param data  Type de données de comparaison.
  * @param titre Titre de la carte.
  *
- * @returns {HTMLDivElement} Élément div prêt à être inséré dans le DOM.
+ * @returns {HTMLAnchorElement} Élément prêt à être inséré dans le DOM.
  */
 export function comparisonCard(type, data, titre)
 {
     if (DEBUG)
         console.log("[Element] comparisonCard - Création de la carte de comparaison");
 
-    // Création de la carte
-    const card = document.createElement("div");
-    card.id = "comparison" + type;
-    card.classList.add("card");
-
-    // Redirection vers la page de comparaison au clic
-    card.addEventListener("click", () =>
-        {
-            if (DEBUG)
-                console.log("[Element] comparisonCard - Clic sur la carte de comparaison, redirection vers /comparison");
-
-            window.location.href = "/comparison/" + type + "/" + data;
-        });
-
-    // Création des éléments texte
-    const pName = document.createElement("p");
-    pName.textContent = titre;
-    pName.classList.add("name");
+    const card = document.createElement("a");
+    card.id = "comparison" + type + (type === "StadiumBleacher" ? "_" + data : "");
+    card.href = "/comparison/" + type + "/" + data;
+    card.classList.add("card", "comparison-card");
 
     const pId = document.createElement("p");
-    pId.textContent = "Comparaison";
     pId.classList.add("id");
+    pId.textContent = "Comparer";
 
-    card.appendChild(pName);
-    card.appendChild(pId);
+    const pName = document.createElement("p");
+    pName.classList.add("name");
+    pName.textContent = titre;
+
+    card.append(pId, pName);
 
     return card;
 }
@@ -189,97 +214,6 @@ export function trackerCard(id, name, color)
     card.appendChild(pId);
 
     return card;
-}
-
-
-
-/**
- * @brief Crée et retourne un graphique Chart.js de type "line" configuré
- *        pour afficher des données en temps réel.
- *
- * @param {CanvasRenderingContext2D} ctx               Contexte 2D du canvas cible.
- * @param {Array<{title: string, color: string}>} list Liste des courbes à créer.
- * @param {string} value                               Unité des valeurs.
- * @param {number} min                                 Borne minimal des valeurs.
- * @param {number} max                                 Borne maximal des valeurs.
- * @param {number} step                                Pas entre les valeurs.
- *
- * @returns {Chart} Instance Chart.js prête à l'emploi.
- */
-export function createChart(ctx, list, value, min, max, step)
-{
-    if (window.DEBUG)
-        console.log(`[Element] createChart - Création du graphique avec ${list.length} dataset(s)`);
-
-    // Construction des datasets à partir de la liste fournie
-    const datasetList = list.map((element) =>
-        {
-            if (window.DEBUG)
-                console.log(`[Element] createChart - Dataset: label='${element.title}', color='${element.color}'`);
-
-            return {
-                label:           element.title,
-                data:            [],
-                borderColor:     element.color,
-                backgroundColor: element.color + "33", // Couleur de fond avec opacité 20%
-                fill:            false,
-                tension:         0.4,
-                pointRadius:     4,
-                borderWidth:     3
-            };
-        });
-
-    // Création du graphique Chart.js
-    const chart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels:   [],
-            datasets: datasetList
-        },
-        options: {
-            responsive:          true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    title: {
-                        display: true,
-                        text:    value,
-                        color:   "#333",
-                        font:    { size: 14, weight: "bold" }
-                    },
-                    beginAtZero: false,
-                    min:         min,
-                    max:         max,
-                    ticks:       { stepSize: step }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text:    "Temps",
-                        color:   "#333",
-                        font:    { size: 14, weight: "bold" }
-                    },
-                    ticks: { maxTicksLimit: 20 }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        color:     "#333",
-                        boxWidth:  20,
-                        boxHeight: 12,
-                        padding:   15,
-                        font:      { size: 18, weight: "bold" }
-                    }
-                }
-            }
-        }
-    });
-
-    if (window.DEBUG)
-        console.log("[Element] createChart - Graphique créé");
-
-    return chart;
 }
 
 

@@ -225,13 +225,14 @@ def _addSupporterHeartRate(supporterId, data):
 
     for supporter in supporterList:
         if supporter.getId() == supporterId:
-            supporter.addData(data, "heart_rate")
+            points = supporter.addData(data, "heart_rate")
 
             payload = createSupporterHeartRateForClient(supporter.getId(), name, color, data["hr"])
             payload.update({
                 "average": supporter.heartRate.getAverage(),
                 "minimum": supporter.heartRate.getMinimum(),
                 "maximum": supporter.heartRate.getMaximum(),
+                "points":  points,
             })
 
             socketio.emit("newSupporterHeartRate", payload)
@@ -306,13 +307,14 @@ def _addStadiumBleacherAccelerometer(stadiumBleacherId, data):
 
     for stadiumBleacher in stadiumBleacherList:
         if stadiumBleacher.getId() == stadiumBleacherId:
-            stadiumBleacher.addData(data, "accelerometer_gyroscope")
+            points = stadiumBleacher.addData(data, "accelerometer_gyroscope")
 
             payload = createStadiumBleacherAccelerometerForClient(stadiumBleacher.getId(), name, color, data["a"])
             payload.update({
                 "average": stadiumBleacher.accelerometer.getAverage(),
                 "minimum": stadiumBleacher.accelerometer.getMinimum(),
                 "maximum": stadiumBleacher.accelerometer.getMaximum(),
+                "points":  points,
             })
 
             socketio.emit("newStadiumBleacherAccelerometer", payload)
@@ -336,13 +338,14 @@ def _addStadiumBleacherAcoustic(stadiumBleacherId, data):
 
     for stadiumBleacher in stadiumBleacherList:
         if stadiumBleacher.getId() == stadiumBleacherId:
-            stadiumBleacher.addData(data, "acoustic")
+            points = stadiumBleacher.addData(data, "acoustic")
 
             payload = createStadiumBleacherAcousticForClient(stadiumBleacher.getId(), name, color, data["a"])
             payload.update({
                 "average": stadiumBleacher.acoustic.getAverage(),
                 "minimum": stadiumBleacher.acoustic.getMinimum(),
                 "maximum": stadiumBleacher.acoustic.getMaximum(),
+                "points":  points,
             })
             socketio.emit("newStadiumBleacherAcoustic", payload)
             return

@@ -1,0 +1,527 @@
+/* =========================================================================
+    Pages de détail : tribune, supporter, comparaison
+   ========================================================================= */
+
+/* Deux colonnes : courbes à gauche, évènements à droite (en dessous sur petit écran) */
+.layout
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 24px;
+}
+.main-col
+{
+    flex: 999 1 640px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* =========================================================================
+    Titre de la page
+   ========================================================================= */
+
+.title-row
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.title-group
+{
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.title-group h1
+{
+    font-size: 56px;
+    line-height: 1;
+    margin-top: 2px;
+}
+.title-actions
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.avatar
+{
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 28px;
+    flex: none;
+}
+.avatar, .avatar *
+{
+    color: #1B1615;
+}
+.btn.is-disabled
+{
+    opacity: .35;
+    cursor: default;
+}
+
+/* =========================================================================
+    Bandeau de navigation dans le temps
+   ========================================================================= */
+
+.timebar
+{
+    background-color: var(--dark-background);
+    border-radius: 20px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.timebar *
+{
+    color: var(--dark-text);
+}
+.timebar-row
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.timebar-controls
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.timebar .tool
+{
+    background-color: var(--dark-surface);
+    border-color: var(--dark-border);
+}
+.timebar .tool:hover
+{
+    border-color: var(--brand-orange);
+}
+.timebar .btn-primary, .timebar .btn-primary *
+{
+    color: var(--brand-black);
+}
+.timebar-range
+{
+    margin-left: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+.timebar-slider
+{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--dark-muted);
+}
+.timebar-slider input
+{
+    width: 100%;
+    height: 28px;
+    accent-color: var(--brand-orange);
+    cursor: pointer;
+}
+
+/* =========================================================================
+    Blocs de données
+   ========================================================================= */
+
+.panel
+{
+    background-color: var(--card-background);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.panel-header
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.panel-header h2
+{
+    font-size: 30px;
+}
+.panel-actions
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kpis
+{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.kpi
+{
+    background-color: var(--card-soft-background);
+    border-radius: 14px;
+    padding: 16px;
+}
+.kpi-label
+{
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.kpi-value
+{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-unit
+{
+    font-family: var(--font-body);
+    font-size: 18px;
+    color: var(--text-muted);
+}
+.kpi-current
+{
+    background-color: var(--dark-background);
+}
+.kpi-current .kpi-label
+{
+    color: var(--brand-orange);
+}
+.kpi-current .kpi-value, .kpi-current .kpi-value *
+{
+    color: #FFFFFF;
+}
+.kpi-current .kpi-unit
+{
+    color: var(--dark-muted);
+}
+
+.chart-box
+{
+    position: relative;
+    height: 280px;
+}
+.chart-box.tall
+{
+    height: 420px;
+}
+.chart-box canvas
+{
+    cursor: grab;
+}
+
+/* Légende cliquable de la page de comparaison */
+.legend
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.legend-item
+{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.legend-item:hover
+{
+    border-color: var(--brand-orange);
+}
+.legend-item[aria-pressed="false"]
+{
+    opacity: .45;
+}
+.legend-item[aria-pressed="false"] .legend-name
+{
+    text-decoration: line-through;
+}
+.legend-swatch
+{
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid #1B1615;
+    flex: none;
+}
+.legend-value
+{
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+}
+.empty-state
+{
+    font-size: 15px;
+    color: var(--text-muted);
+}
+
+/* =========================================================================
+    Colonne des évènements du match
+   ========================================================================= */
+
+.events
+{
+    flex: 1 1 300px;
+    min-width: 280px;
+    background-color: var(--dark-background);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.events *
+{
+    color: var(--dark-text);
+}
+.events h2
+{
+    font-size: 24px;
+}
+.events-block
+{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.events-list-block
+{
+    border-top: 1px solid #332B29;
+    padding-top: 20px;
+}
+.events-time
+{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--dark-muted);
+}
+.events-time input
+{
+    min-height: 44px;
+    border-radius: var(--radius-small);
+    border: 1px solid var(--dark-border);
+    background-color: var(--dark-surface);
+    font-size: 15px;
+    padding: 0 10px;
+    color-scheme: dark;
+}
+.event-types
+{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.event-type
+{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--radius-small);
+    border: 1px solid var(--dark-border);
+    background-color: var(--dark-surface);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+.event-type:hover
+{
+    border-color: var(--brand-orange);
+}
+.swatch
+{
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1px solid #FFFFFF;
+    flex: none;
+}
+.events-empty
+{
+    font-size: 14px;
+    color: var(--dark-muted);
+}
+.event-list
+{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.event-item
+{
+    display: flex;
+    align-items: center;
+    border-radius: 999px;
+    background-color: #FFFFFF;
+    overflow: hidden;
+}
+.event-item *
+{
+    color: #1B1615;
+}
+.event-focus
+{
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 6px 0 14px;
+    border: 0;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+}
+.event-focus:hover .event-name
+{
+    color: var(--brand-orange-dark);
+}
+.event-focus .swatch
+{
+    border-color: #1B1615;
+}
+.event-time
+{
+    font-variant-numeric: tabular-nums;
+    color: #5A5650;
+}
+.event-minute
+{
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--brand-orange-dark);
+}
+.event-minute:empty
+{
+    display: none;
+}
+.event-name
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.event-remove
+{
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.event-remove, .event-remove *
+{
+    color: #6B665F;
+}
+.event-remove:hover, .event-remove:hover *
+{
+    color: #B3261E;
+}
+
+/* En mode sombre, les panneaux noirs sont détourés pour se détacher du fond */
+@media (prefers-color-scheme: dark)
+{
+    .timebar, .events, .kpi-current
+    {
+        border: 1px solid var(--card-border);
+    }
+}
+
+/* =========================================================================
+    Message de déconnexion
+   ========================================================================= */
+
+.toast
+{
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--brand-black);
+    border: 2px solid var(--brand-orange);
+    border-radius: var(--radius-small);
+    padding: 14px 20px;
+    font-weight: 600;
+    z-index: 100;
+}
+.toast, .toast *
+{
+    color: #FFFFFF;
+}
+
+@media (max-width: 640px)
+{
+    .title-group h1
+    {
+        font-size: 40px;
+    }
+    .kpi-value
+    {
+        font-size: 36px;
+    }
+}
+
+/* Boutons de téléchargement dans la colonne sombre des évènements */
+.events .btn
+{
+    background-color: var(--dark-surface);
+    border-color: var(--dark-border);
+}
+.events .btn:hover
+{
+    border-color: var(--brand-orange);
+}
+.events .btn-primary
+{
+    background-color: var(--brand-orange);
+    border-color: var(--brand-orange);
+}
+.events .btn-primary, .events .btn-primary *
+{
+    color: var(--brand-black);
+}

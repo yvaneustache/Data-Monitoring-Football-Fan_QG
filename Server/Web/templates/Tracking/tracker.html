@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
         <title>Supporter n°{{ id }}</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+        {% include "partials/head.html" %}
         <link rel="stylesheet" href="{{ url_for('static', filename='css/Tracking/tracker.css') }}">
         <style>
             :root 
@@ -13,7 +13,8 @@
         </style>
     </head>
     <body>
-        <header>
+        {% include "partials/topbar.html" %}
+        <header class="page-header">
             <h2>{{ name }}</h2>
             <h1>Tracker n°{{ id }}</h1>
             <a href="/tracking" class="button">← Retour</a>

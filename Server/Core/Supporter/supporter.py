@@ -79,11 +79,13 @@ class Supporter:
     #
     # @param data     Dictionnaire contenant au minimum les clés "type" et la valeur associée.
     # @param dataType Type de la données à ajouter.
+    #
+    # @return list Points [timestamp en ms, valeur] ajoutés à l'historique.
     ##
     def addData(self, data, dataType):
         if dataType == "heart_rate":
-            self.heartRate.addData(data["hr"])
+            return self.heartRate.addData(data["hr"])
         else:
             # Type inconnu : logué mais non bloquant
             logger.warning(f"[Supporter] Type de données inconnu ignoré : '{dataType}'")
-        return
+        return []

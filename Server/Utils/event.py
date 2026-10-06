@@ -189,3 +189,96 @@ def loadMatchInformation(postgresqlClient):
     logger.info(f"[Event] Chargement des informations du match: {matchInformation}")
 
     return matchInformation, lastInformation
+
+
+
+
+##
+# @brief Retourne le match affiché sur les graphiques : le dernier match enregistré.
+#
+# Contrairement à loadMatchInformation(), aucun nouveau match n'est créé quand le
+# dernier est terminé (évènement "Fin du match") : ses évènements restent affichés.
+# Un nouveau match est créé seulement s'il n'en existe aucun, ou depuis la page /event.
+#
+# @param postgresqlClient Client PostgreSQL.
+#
+# @return dict {"id": …, "ts": datetime, "domicile": {"id": …, "team": …}, "exterieur": {"id": …, "team": …}}.
+##
+def getCurrentMatch(postgresqlClient):
+    match = postgresqlClient.fetch("SELECT id, ts FROM match ORDER BY ts DESC LIMIT 1")
+    if not match:
+        loadMatchInformation(postgresqlClient)
+        match = postgresqlClient.fetch("SELECT id, ts FROM match ORDER BY ts DESC LIMIT 1")
+
+    matchId = match[0]["id"]
+
+    teams = {}
+    for side in ["domicile", "exterieur"]:
+        team = postgresqlClient.fetch(f"SELECT team.id, team.name FROM team, match WHERE match.id = %s AND match.{side} = team.id", (matchId,))
+        teams[side] = {"id": team[0]["id"], "team": team[0]["name"]} if team else {"id": None, "team": None}
+
+    return {"id": matchId, "ts": match[0].get("ts"), "domicile": teams["domicile"], "exterieur": teams["exterieur"]}
+
+
+
+##
+# @brief Retourne les évènements d'un match, horodatés en millisecondes et nommés d'après event.json.
+#
+# @param postgresqlClient Client PostgreSQL.
+# @param matchId          Identifiant du match.
+#
+# @return list Liste de {"id", "code", "name", "team", "t"} triée par date.
+##
+def getMatchEventList(postgresqlClient, matchId):
+    names = {}
+    for category in loadConfigurationInformation():
+        for event in category["event"]:
+            names[event["code"]] = event["name"]
+
+    events = postgresqlClient.fetch("SELECT id, code, ts, team FROM event WHERE match = %s ORDER BY ts", (matchId,))
+
+    return [{"id": e["id"], "code": e["code"], "name": names.get(e["code"], f"Évènement {e['code']}"), "team": e["team"], "t": int(e["ts"].timestamp() * 1000)} for e in events]
+
+
+
+##
+# @brief Minute de jeu à un instant donné, d'après les évènements de phase de jeu.
+#
+# Même calcul que l'interface web : temps écoulé depuis le coup d'envoi (0'), depuis
+# la reprise à partir de 45', puis depuis les prolongations à partir de 90' et 105'.
+# Le temps additionnel s'écrit "45+2'". Entre deux périodes : "Mi-temps" ou "Pause".
+#
+# @param events Évènements du match (cf. getMatchEventList()), triés par date.
+# @param t      Timestamp en millisecondes.
+#
+# @return str Minute de jeu, chaîne vide avant le coup d'envoi ou après la fin du match.
+##
+def matchMinute(events, t):
+    starts = {1: 0, 3: 45, 5: 90, 7: 105}
+    ends = {1: 45, 3: 90, 5: 105, 7: 120}
+    reference = None
+    base = 0
+    state = None
+
+    for event in events:
+        if event["t"] > t:
+            break
+
+        if event["code"] in starts:
+            reference = event["t"]
+            base = starts[event["code"]]
+            state = event["code"]
+        elif event["code"] in (2, 6):
+            state = "Mi-temps" if event["code"] == 2 else "Pause"
+        elif event["code"] in (4, 8, 9, 10, 12):
+            state = None
+
+    if isinstance(state, str):
+        return state
+    if state is None or reference is None:
+        return ""
+
+    minute = base + int((t - reference) // 60000)
+    end = ends[state]
+
+    return f"{end}+{minute - end}'" if minute >= end else f"{minute}'"

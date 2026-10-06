@@ -1,48 +1,79 @@
 /* =========================================================================
-	Reset global
+	Thème FC Lorient : orange, noir et blanc
    ========================================================================= */
 
 :root
 {
-	--text-color: #010101;
-	--body-background: #F9F6F2;
-    --header-background: #FBFBFB;
-    --header-border: #EAEAEA;
-    --card-background: #F6F6F6;
-    --card-border: #CCCCCC;
-    --card-hover-background: #EAEAEA;
-    --card-hover-border: #BABABA;
-    --input-background: #FDFDFD;
-    --input-border: #CCCCCC;
-    --button-background: #E2E2E4;
-    --button-border: #D1D1D3;
-    --back-button-background: #EAEAEA;
+    /* Couleurs du club */
+    --brand-orange: #EA670B;
+    --brand-orange-hover: #F27A22;
+    --brand-orange-dark: #B04E08;
+    --brand-black: #1B1615;
+
+    /* Couleurs de l'interface */
+	--text-color: #1B1615;
+    --text-muted: #5A5650;
+	--body-background: #F6F4F1;
+    --header-background: #FFFFFF;
+    --header-border: #E6E1DB;
+    --card-background: #FFFFFF;
+    --card-border: #E6E1DB;
+    --card-hover-background: #FFFFFF;
+    --card-hover-border: var(--brand-orange);
+    --card-soft-background: #F6F4F1;
+    --input-background: #FFFFFF;
+    --input-border: #CFC8C0;
+    --button-background: var(--brand-orange);
+    --button-border: var(--brand-orange);
+    --back-button-background: #EFEAE4;
     --graph-background: #FFFFFF;
-    --graph-zone: #000000;
+    --graph-zone: #1B1615;
+    --graph-grid: #EFEAE4;
+    --graph-axis: #CFC8C0;
+    --graph-text: #5A5650;
+
+    /* Panneaux sombres (bandeaux, colonne des évènements) */
+    --dark-background: #1B1615;
+    --dark-surface: #271F1D;
+    --dark-border: #3A3330;
+    --dark-text: #FFFFFF;
+    --dark-muted: #BDBDBD;
+
+    /* Typographie */
+    --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    --radius: 16px;
+    --radius-small: 12px;
 }
 @media (prefers-color-scheme: dark)
 {
     :root
     {
-    	--text-color: #FEFEFE;
-    	--body-background: #0D1012;
-    	--header-background: #252A2F;
-    	--header-border: #4E5760;
-    	--card-background: #32393F;
-    	--card-border: #5D6771;
-    	--card-hover-background: #5D6771;
-    	--card-hover-border: #CCC9DC;
-    	--input-background: #4F4F4F;
-    	--input-border: #2C2C2C;
-        --button-background: #5E5E5E;
-        --button-border: #A3A3A3;
-        --back-button-background: #4E5760;
-        --graph-background: #000000;
+    	--text-color: #F5F5F5;
+        --text-muted: #BDBDBD;
+    	--body-background: #120E0D;
+    	--header-background: #211B1A;
+    	--header-border: #332B29;
+    	--card-background: #211B1A;
+    	--card-border: #332B29;
+    	--card-hover-background: #271F1D;
+        --card-soft-background: #2A2321;
+    	--input-background: #2A2321;
+    	--input-border: #3A3330;
+        --back-button-background: #332B29;
+        --graph-background: #211B1A;
         --graph-zone: #FFFFFF;
+        --graph-grid: #332B29;
+        --graph-axis: #4A4A4A;
+        --graph-text: #BDBDBD;
+        --brand-orange-dark: #FF9A52;
     }
 }
 
-
+/* =========================================================================
+	Reset global
+   ========================================================================= */
 
 *, *::before, *::after
 {
@@ -53,3 +84,284 @@
 	text-decoration: none;
 	color: var(--text-color);
 }
+
+body
+{
+    background-color: var(--body-background);
+    font-family: var(--font-body);
+    min-height: 100vh;
+}
+
+h1, h2, h3
+{
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+button, input, select, textarea
+{
+    font-family: inherit;
+}
+
+.hidden
+{
+    display: none !important;
+}
+
+/* =========================================================================
+	Barre de navigation commune
+   ========================================================================= */
+
+.topbar
+{
+    background-color: var(--brand-black);
+    border-bottom: 4px solid var(--brand-orange);
+}
+.topbar *
+{
+    color: #FFFFFF;
+}
+.topbar-inner
+{
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.brand
+{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.brand-logo
+{
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-small);
+    background-color: var(--brand-orange);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.brand-logo svg, .brand-logo svg *
+{
+    color: var(--brand-black);
+}
+.brand-title
+{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+.brand-subtitle
+{
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-top: 4px;
+    color: var(--brand-orange);
+}
+.nav
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.nav-link
+{
+    color: #D9D9D9;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 10px 14px;
+    border-radius: 999px;
+}
+.nav-link:hover
+{
+    color: #FFFFFF;
+    background-color: #2A2321;
+}
+.nav-link.active
+{
+    color: var(--brand-black);
+    background-color: var(--brand-orange);
+    font-weight: 600;
+}
+/* Logos des partenaires, regroupés dans un rectangle arrondi */
+.partners
+{
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 18px;
+    border: 1px solid #3A3330;
+    border-radius: var(--radius-small);
+    background-color: #241E1C;
+}
+.partners img
+{
+    display: block;
+    height: 36px;
+    width: auto;
+}
+.partners .partner-club
+{
+    height: 48px;
+    margin: -6px 0;
+}
+.live
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+.live-dot
+{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--brand-orange);
+    box-shadow: 0 0 0 4px rgba(234, 103, 11, .25);
+}
+.live.offline .live-dot
+{
+    background-color: #6B665F;
+    box-shadow: none;
+}
+
+/* =========================================================================
+	Contenu des pages
+   ========================================================================= */
+
+.page
+{
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+}
+
+/* Titre de page des pages historiques (Contrôle, Tracking) */
+.page-header
+{
+    background-color: var(--header-background);
+    border: 1px solid var(--header-border);
+    border-radius: var(--radius);
+    margin: 32px auto 24px;
+    max-width: 1392px;
+    width: calc(100% - 48px);
+    padding: 20px 24px;
+}
+.page-header h1
+{
+    font-size: 40px;
+}
+
+.eyebrow
+{
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--brand-orange-dark);
+}
+
+/* =========================================================================
+	Boutons
+   ========================================================================= */
+
+.btn
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-small);
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+}
+.btn:hover
+{
+    border-color: var(--brand-orange);
+}
+.btn:active
+{
+    transform: translateY(1px);
+}
+.btn:disabled
+{
+    opacity: .4;
+    cursor: not-allowed;
+}
+.btn-primary
+{
+    background-color: var(--brand-orange);
+    border-color: var(--brand-orange);
+}
+.btn-primary, .btn-primary *
+{
+    color: var(--brand-black);
+}
+.btn-primary:hover
+{
+    background-color: var(--brand-orange-hover);
+}
+.btn-dark
+{
+    background-color: var(--brand-black);
+    border-color: var(--brand-black);
+}
+.btn-dark, .btn-dark *
+{
+    color: #FFFFFF;
+}
+.btn-dark:hover
+{
+    background-color: #332B29;
+    border-color: #332B29;
+}
+.btn-icon
+{
+    width: 44px;
+    padding: 0;
+}
+.btn svg
+{
+    flex: none;
+}
+
+/* Bouton retour des pages historiques */
+.button
+{
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-small);
+    background-color: var(--brand-black);
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+:focus-visible
+{
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 2px;
+}
+

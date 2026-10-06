@@ -1,68 +1,38 @@
+{% import "partials/components.html" as ui %}
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>Tribune n°{{ id }}</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/stadiumBleacher.css') }}">
-        <style>
-            :root 
-            {
-                --color: {{ color }};
-            }
-        </style>
+        <title>Tribune {{ name }}</title>
+        {% include "partials/head.html" %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/detail.css') }}">
     </head>
     <body>
-        <button id="prev" class="hidden"><</button>
-        <button id="next">></button>
-        <header>
-            <h2>{{ name }}</h2>
-            <h1>Tribune n°{{ id }}</h1>
-            <a href="/" class="button">← Retour</a>
-        </header>
-        <main>
-            <div id="accelerometer" class="grid">
-                <div class="card">
-                    <p class="accelerometer value">-</p>
-                    <p class="label">Accéléromètre</p>
+        {% include "partials/topbar.html" %}
+        <main class="page layout">
+            <div class="main-col">
+                <div class="title-row">
+                    <div class="title-group">
+                        {{ ui.neighbourLink("/stadiumBleacher/", prevId, "Tribune précédente", "prev") }}
+                        <div>
+                            <p class="eyebrow">Tribune n°{{ id }}</p>
+                            <h1>Tribune {{ name }}</h1>
+                        </div>
+                        {{ ui.neighbourLink("/stadiumBleacher/", nextId, "Tribune suivante", "next") }}
+                    </div>
+                    <div class="title-actions">
+                        <button id="reset-all" class="btn" type="button">
+                            {{ ui.resetIcon() }}
+                            Tout remettre à zéro
+                        </button>
+                        {{ ui.backButton() }}
+                    </div>
                 </div>
-                <div class="card">
-                    <p class="average value">-</p>
-                    <p class="label">Moyenne</p>
-                </div>
-                <div class="card">
-                    <p class="minimum value">-</p>
-                    <p class="label">Minimum</p>
-                </div>
-                <div class="card">
-                    <p class="maximum value">-</p>
-                    <p class="label">Maximum</p>
-                </div>
+                {{ ui.timebar() }}
+                {{ ui.measurePanel("accelerometer", "Vibration", "m/s²") }}
+                {{ ui.measurePanel("acoustic", "Acoustique", "dB(A)") }}
             </div>
-            <div class="chart-container">
-                <canvas id="chart_accelerometer"></canvas>
-            </div>
-            <div id="acoustic" class="grid">
-                <div class="card">
-                    <p class="acoustic value">-</p>
-                    <p class="label">Acoustique</p>
-                </div>
-                <div class="card">
-                    <p class="average value">-</p>
-                    <p class="label">Moyenne</p>
-                </div>
-                <div class="card">
-                    <p class="minimum value">-</p>
-                    <p class="label">Minimum</p>
-                </div>
-                <div class="card">
-                    <p class="maximum value">-</p>
-                    <p class="label">Maximum</p>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart_acoustic"></canvas>
-            </div>
+            {{ ui.eventsSidebar() }}
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
         <script src="{{ url_for('static', filename='lib/chart.umd.min.js') }}"></script>
@@ -70,10 +40,9 @@
             // Définition des variables dynamiques
             window.DEBUG = {{ debug }};
             window.id = {{ id }};
-            window.name = "{{ name }}";
-            window.color = "{{ color }}";
+            window.name = {{ name | tojson }};
+            window.color = {{ color | tojson }};
             window.sensorDelay = {{ sensorDelay }};
-            window.numberGraph = 2;
         </script>
         <script type="module" src="{{ url_for('static', filename='js/Dashboard/stadiumBleacher.js') }}"></script>
     </body>

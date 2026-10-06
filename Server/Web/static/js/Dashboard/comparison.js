@@ -3,241 +3,136 @@
  *
  * @brief Logique de la page de comparaison.
  *
- * Demande les données de tous les type de support connectés et les affiche sur un graphique multi-courbes. Gère dynamiquement les connexions et déconnexions en temps réel via SocketIO.
+ * Superpose sur un même graphique les courbes de tous les supporters (fréquence cardiaque) ou de toutes les tribunes (vibration ou acoustique). Chaque courbe peut être masquée ou réaffichée en cliquant sur son nom dans la légende.
  */
 
 // ============================================================================
 //  Import des bibliothèques
 // ============================================================================
 
-import { createChart } from "../Utils/element.js";
-import { subtractSeconds } from "../Utils/time.js";
-import { dataToString, typeToString } from "../Utils/stringConversion.js";
+import { TimeNavigator, TimeChart, bindLiveIndicator } from "../Utils/timeChart.js";
+import { MatchEvents } from "../Utils/matchEvents.js";
+
+// ============================================================================
+//  Configuration selon le type de comparaison
+// ============================================================================
+
+const CONFIGURATIONS = {
+    heart_rate: {
+        request:    "getSupporterHeartRateAll",
+        response:   "getSupporterHeartRateAllResponse",
+        live:       "newSupporterHeartRate",
+        connection: "supporterConnection",
+        field:      "heartRate",
+        unit:       "bpm",
+        digits:     0,
+        axis:       { min: 40, max: 200, step: 20 },
+    },
+    accelerometer: {
+        request:    "getStadiumBleacherAccelerometerAll",
+        response:   "getStadiumBleacherAccelerometerAllResponse",
+        live:       "newStadiumBleacherAccelerometer",
+        connection: "stadiumBleacherConnection",
+        field:      "accelerometer",
+        unit:       "m/s²",
+        digits:     2,
+        axis:       { suggestedMin: 0, suggestedMax: 1 },
+    },
+    acoustic: {
+        request:    "getStadiumBleacherAcousticAll",
+        response:   "getStadiumBleacherAcousticAllResponse",
+        live:       "newStadiumBleacherAcoustic",
+        connection: "stadiumBleacherConnection",
+        field:      "acoustic",
+        unit:       "dB(A)",
+        digits:     1,
+        axis:       { suggestedMin: 30, suggestedMax: 90 },
+    },
+};
+
+const config = CONFIGURATIONS[window.data];
 
 // ============================================================================
 //  Initialisation
 // ============================================================================
 
 const socket = io();
-
-// Création du titre de la page
-document.querySelector("h1").textContent = `Comparison ${dataToString(window.data)} entre les ${typeToString(window.type)}`;
+bindLiveIndicator(socket);
 
 if (window.DEBUG)
-    console.log("[Comparison] Initialisation - Demande des données");
+    console.log(`[Comparison] Initialisation - type=${window.type} data=${window.data}`);
 
-// Création du graphique multi-courbes (vide au départ, alimenté par les événements)
-const canva = document.getElementById("chart");
-const ctx   = canva.getContext("2d");
-let chart = null;
+const timeNavigator = new TimeNavigator();
+timeNavigator.bindToolbar(document.getElementById("timebar"));
 
-// Demande des données initiales
-if (window.type == "Supporter" && window.data == "heart_rate")
+const events = new MatchEvents(socket, timeNavigator, document.getElementById("events"));
+
+const chart = new TimeChart(document.getElementById("chart"), {
+    navigator: timeNavigator,
+    events:    events,
+    unit:      config.unit,
+    datasets:  [],
+    ...config.axis,
+});
+chart.setMulti();
+
+const legend = document.getElementById("legend");
+const empty  = document.getElementById("empty");
+const series = new Map(); ///< @brief Courbes affichées : id → { button, value, visible }.
+
+document.getElementById("show-all").addEventListener("click", () =>
 {
-    chart = createChart(ctx, [], "BPM", 40, 200, 10);
-    socket.emit("getSupporterHeartRateAll");
-}
-else if (window.type == "StadiumBleacher" && window.data == "accelerometer")
+    for (const id of series.keys())
+        _setVisible(id, true);
+});
+document.getElementById("hide-all").addEventListener("click", () =>
 {
-    chart = createChart(ctx, [], "m/s²", 0, 19.62, 1.5);
-    socket.emit("getStadiumBleacherAccelerometerAll");
-}
-else if (window.type == "StadiumBleacher" && window.data == "acoustic")
-{
-    chart = createChart(ctx, [], "DB", 0, 160, 10);
-    socket.emit("getStadiumBleacherAcousticAll");
-}
-else
-{
-    if (window.DEBUG)
-        console.log(`[Comparison] Initialisation - Type de données ou type de support inconnu: type=${window.type} data=${window.data}`);
-}
+    for (const id of series.keys())
+        _setVisible(id, false);
+});
+
+socket.emit(config.request);
 
 // ============================================================================
 //  Événements SocketIO
 // ============================================================================
 
-if (window.data == "heart_rate")
-{
-    /**
-     * @brief Réception des fréquence cardiaque initiales de tous les supporters connectés.
-     *
-     * @param {Array<{id: number, name: string, color: string, heartRate: number}>} dataList Liste des données de chaque supporter connecté.
-     */
-    socket.on("getSupporterHeartRateAllResponse", (dataList) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] getSupporterHeartRateAllResponse - Réception des données de ${dataList.length} supporter(s)`);
-
-        for (const data of dataList)
-        {
-            if (window.DEBUG)
-                console.log(`[Comparison] getSupporterHeartRateAllResponse - Ajout du supporter '${data.name}' (HR=${data.heartRate} bpm)`);
-
-            _addToGraphic(chart, data.name, data.color);
-            _fillGraphicData(chart, data.name, data.heartRate);
-        }
-    });
-
-
-
-    /**
-     * @brief Réception d'une nouvelle mesure en temps réel.
-     *
-     * @param {{name: string, heartRate: number}} data
-     *        Nouvelles données du supporter.
-     */
-    socket.on("newSupporterHeartRate", (data) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] newSupporterHeartRate - Nouvelle mesure pour '${data.name}' (HR=${data.heartRate} bpm)`);
-
-        _fillGraphicData(chart, data.name, data.heartRate);
-    });
-}
-
-
-
-if (window.data == "acoustic")
-{
-    /**
-     * @brief Réception des données acoustiques initiales de toutes les tribunes connectées.
-     *
-     * @param {Array<{id: number, name: string, color: string, acoustic: number}>} dataList Liste des données de chaque tribune connecté.
-     */
-    socket.on("getStadiumBleacherAcousticAllResponse", (dataList) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] getStadiumBleacherAcousticAllResponse - Réception des données de ${dataList.length} tribune(s)`);
-
-        for (const data of dataList)
-        {
-            if (window.DEBUG)
-                console.log(`[Comparison] getStadiumBleacherAcousticAllResponse - Ajout de la tribune '${data.name}' (ACOUSTIC=${data.acoustic} db)`);
-
-            _addToGraphic(chart, data.name, data.color);
-            _fillGraphicData(chart, data.name, data.acoustic);
-        }
-    });
-
-
-
-    /**
-     * @brief Réception d'une nouvelle mesure en temps réel.
-     *
-     * @param {{name: string, acoustic: number}} data
-     *        Nouvelles données d'une tribune.
-     */
-    socket.on("newStadiumBleacherAcoustic", (data) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] newStadiumBleacherAcoustic - Nouvelle mesure pour '${data.name}' (ACOUSTIC=${data.acoustic} db)`);
-
-        _fillGraphicData(chart, data.name, data.acoustic);
-    });
-}
-
-
-
-if (window.data == "accelerometer")
-{
-    /**
-     * @brief Réception des données de l'accéléromètre initiales de toutes les tribunes connectées.
-     *
-     * @param {Array<{id: number, name: string, color: string, accelerometer: [number, number, number]}>} dataList Liste des données de chaque tribune connecté.
-     */
-    socket.on("getStadiumBleacherAccelerometerAllResponse", (dataList) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] getStadiumBleacherAccelerometerAllResponse - Réception des données de ${dataList.length} tribune(s)`);
-
-        for (const data of dataList)
-        {
-            if (window.DEBUG)
-                console.log(`[Comparison] getStadiumBleacherAccelerometerAllResponse - Ajout de la tribune '${data.name}' (ACCELEROMETER=${data.accelerometer})`);
-
-            _addToGraphic(chart, data.name, data.color);
-            _fillGraphicData(chart, data.name, data.accelerometer);
-        }
-    });
-
-
-
-    /**
-     * @brief Réception d'une nouvelle mesure en temps réel.
-     *
-     * @param {{name: string, accelerometer: [number, number, number]}} data
-     *        Nouvelles données d'une tribune.
-     */
-    socket.on("newStadiumBleacherAccelerometer", (data) =>
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] newStadiumBleacherAccelerometer - Nouvelle mesure pour '${data.name}' (ACCELEROMETER=${data.accelerometer} m/s2)`);
-
-        _fillGraphicData(chart, data.name, data.accelerometer);
-    });
-}
-
-
-
 /**
- * @brief Connexion d'un nouveau supporter en temps réel.
- *
- * @param {{name: string, color: string}} data
- *        Données du supporter qui vient de se connecter.
+ * @brief Réception de l'historique de tous les supporters ou de toutes les tribunes.
  */
-socket.on("supporterConnection", (data) =>
+socket.on(config.response, (dataList) =>
 {
     if (window.DEBUG)
-        console.log(`[ComparisonSupporter] supporterConnection - Nouveau supporter '${data.name}', ajout de la courbe`);
+        console.log(`[Comparison] ${config.response} - ${dataList.length} courbe(s)`);
 
-    _addToGraphic(chart, data.name, data.color);
+    for (const data of dataList)
+    {
+        _addSeries(data.id, data.name, data.color);
+        chart.setHistory(String(data.id), data.history);
+        _setValue(data.id, data.history);
+    }
 });
 
 
 
 /**
- * @brief Connexion d'une nouvelle tribune en temps réel.
- *
- * @param {{name: string, color: string}} data
- *        Données de la tribune qui vient de se connecter.
+ * @brief Réception d'un nouvel envoi de données.
  */
-socket.on("stadiumBleacherConnection", (data) =>
+socket.on(config.live, (data) =>
 {
-    if (window.DEBUG)
-        console.log(`[Comparison] stadiumBleacherConnection - Nouvelle tribune '${data.name}', ajout de la courbe`);
-
-    _addToGraphic(chart, data.name, data.color);
+    _addSeries(data.id, data.name, data.color);
+    chart.addPoints(String(data.id), data.points);
+    _setValue(data.id, data.points);
 });
 
 
 
 /**
- * @brief Déconnexion d'un supporter en temps réel.
- *
- * @param {string} supporterName Nom du supporter déconnecté.
+ * @brief Nouveau supporter ou nouvelle tribune : rechargement de son historique.
  */
-socket.on("supporterDisconnection", (supporterName) =>
+socket.on(config.connection, () =>
 {
-    if (window.DEBUG)
-        console.log(`[ComparisonSupporter] supporterDisconnection - Suppression de la courbe du supporter '${supporterName}'`);
-
-    _removeFromGraphic(chart, supporterName);
-});
-
-
-
-/**
- * @brief Déconnexion d'une tribune en temps réel.
- *
- * @param {string} stadiumBleacherName Nom de la tribune déconnecté.
- */
-socket.on("stadiumBleacherDisconnection", (stadiumBleacherName) =>
-{
-    if (window.DEBUG)
-        console.log(`[Comparison] stadiumBleacherDisconnection - Suppression de la courbe de la tribune '${stadiumBleacherName}'`);
-
-    _removeFromGraphic(chart, stadiumBleacherName);
+    socket.emit(config.request);
 });
 
 
@@ -247,9 +142,6 @@ socket.on("stadiumBleacherDisconnection", (stadiumBleacherName) =>
  */
 socket.on("serverClose", () =>
 {
-    if (window.DEBUG)
-        console.log("[ComparisonSupporter] serverClose - Fermeture du serveur, redirection vers l'accueil");
-
     window.location.href = "/";
 });
 
@@ -258,114 +150,63 @@ socket.on("serverClose", () =>
 // ============================================================================
 
 /**
- * @brief Ajoute un nouveau point de données sur la courbe.
- *
- * @param {Chart}  chart Instance Chart.js cible.
- * @param {string} name  Label de la courbe.
- * @param {number} data  Valeur des données.
+ * @brief Ajoute une courbe et son bouton de légende s'ils n'existent pas encore.
  */
-function _fillGraphicData(chart, name, data)
+function _addSeries(id, name, color)
 {
-    const index = chart.data.datasets.findIndex(d => d.label === name);
+    if (series.has(id))
+        return ;
 
-    if (index === -1)
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] _fillGraphicData - Courbe '${name}' introuvable, point ignoré`);
-        return;
-    }
+    chart.addDataset(String(id), name, color);
 
-    const now = new Date();
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "legend-item";
+    button.setAttribute("aria-pressed", "true");
 
-    for (let i=data.length - 1; i >= 0; i--)
-    {
-        if (data[i] != 0)
-        {
-            // Heure de la mesure formatée HH:MM:SS comme label de l'axe X
-            const time = new Date(subtractSeconds(now, i * window.sensorDelay));
-            const timestamp = time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const swatch = document.createElement("span");
+    swatch.className = "legend-swatch";
+    swatch.style.backgroundColor = color;
 
-            if (window.DEBUG)
-                console.log(`[Comparison] _fillGraphic - Ajout du point DATA=${data[i]} pour '${name}' à t=${timestamp}`);
+    const label = document.createElement("span");
+    label.className = "legend-name";
+    label.textContent = name;
 
-            chart.data.datasets[index].data.push({ x: timestamp, y: data[i] });
+    const value = document.createElement("span");
+    value.className = "legend-value";
+    value.textContent = `— ${config.unit}`;
 
-            // Limite l'historique affiché à 100 points
-            if (chart.data.datasets[index].data.length > 100)
-                chart.data.datasets[index].data.shift();
-        }
-    }
+    button.append(swatch, label, value);
+    button.addEventListener("click", () => _setVisible(id, !series.get(id).visible));
 
-    // Mise à jour sans animation pour un rendu temps réel fluide
-    chart.update("none");
+    // Légende triée par identifiant
+    const next = [...series.entries()].find(([otherId]) => otherId > id);
+    legend.insertBefore(button, next ? next[1].button : null);
 
-    return ;
+    series.set(id, { button: button, value: value, visible: true });
+    empty.classList.add("hidden");
 }
 
 
 
 /**
- * @brief Ajoute une nouvelle courbe vide pour un supporter sur le graphique.
- *
- * @param {Chart}  chart Instance Chart.js cible.
- * @param {string} name  Label de la courbe.
- * @param {string} color Couleur CSS de la courbe (ex : "#FF0000").
+ * @brief Affiche ou masque une courbe.
  */
-function _addToGraphic(chart, name, color)
+function _setVisible(id, visible)
 {
-    // Vérifie qu'une courbe portant ce nom n'existe pas déjà
-    const alreadyExists = chart.data.datasets.some(d => d.label === name);
-
-    if (alreadyExists)
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] _addSupporterToGraphic - Courbe '${name}' déjà présente, ajout ignoré`);
-        return;
-    }
-
-    if (window.DEBUG)
-        console.log(`[Comparison] _addSupporterToGraphic - Ajout de la courbe '${name}' (color='${color}')`);
-
-    chart.data.datasets.push({
-        label:           name,
-        data:            [],
-        borderColor:     color,
-        backgroundColor: color + "33", // Couleur de fond avec opacité 20%
-        fill:            false,
-        tension:         0.4,
-        pointRadius:     4,
-        borderWidth:     3
-    });
-
-    chart.update("none");
-
-    return ;
+    const entry = series.get(id);
+    entry.visible = visible;
+    entry.button.setAttribute("aria-pressed", visible ? "true" : "false");
+    chart.setVisible(String(id), visible);
 }
 
 
 
 /**
- * @brief Retire la courbe d'un supporter du graphique.
- *
- * @param {Chart}  chart Instance Chart.js cible.
- * @param {string} name  Label de la courbe à supprimer.
+ * @brief Affiche la dernière valeur d'une courbe dans la légende.
  */
-function _removeFromGraphic(chart, name)
+function _setValue(id, points)
 {
-    const index = chart.data.datasets.findIndex(d => d.label === name);
-
-    if (index === -1)
-    {
-        if (window.DEBUG)
-            console.log(`[Comparison] _removeSupporterFromGraphic - Courbe '${name}' introuvable, suppression ignorée`);
-        return;
-    }
-
-    if (window.DEBUG)
-        console.log(`[Comparison] _removeSupporterFromGraphic - Suppression de la courbe '${name}'`);
-
-    chart.data.datasets.splice(index, 1);
-    chart.update("none");
-
-    return ;
+    if (points && points.length)
+        series.get(id).value.textContent = `${Number(points[points.length - 1][1]).toFixed(config.digits)} ${config.unit}`;
 }

@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 from Server.Config.setting import Config
 from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker
-from Server.Utils.event import createNewEventConfiguration
+from Server.Utils.event import createNewEventConfiguration, getCurrentMatch, getMatchEventList
 from Server.Utils.logger import Logger
 
 # =============================================================================
@@ -24,6 +24,8 @@ from Server.Utils.logger import Logger
 # =============================================================================
 
 logger = Logger("Serveur/SocketIO")
+
+PHASE_EVENT_CODES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 32, 33, 34, 35, 36, 37, 38] ##< @brief Codes des évènements sans minute de jeu (phases de jeu, interventions extérieures).
 
 # =============================================================================
 #  Enregistrement des gestionnaires SocketIO
@@ -52,7 +54,7 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
         logger.info("[SocketIO] Réception de 'getSupporter'")
 
         payload = [{"id": s.supporterId, "name": s.name, "color": getColorOfSupporter(s.supporterId)} for s in supporterList]
-        socketio.emit("getSupporterResponse", payload)
+        emit("getSupporterResponse", payload)
 
         return
 
@@ -79,8 +81,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
                     "average": supporter.heartRate.getAverage(),
                     "minimum": supporter.heartRate.getMinimum(),
                     "maximum": supporter.heartRate.getMaximum(),
+                    "history": supporter.heartRate.getHistory(),
                 })
-                socketio.emit("getSupporterHeartRateResponse", payload)
+
+                emit("getSupporterHeartRateResponse", payload)
                 return
 
         logger.warning(f"[SocketIO] Aucun supporter trouvé avec l'id={supporterId}")
@@ -103,9 +107,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
             name  = getNameOfSupporter(supporter.getId())
             color = getColorOfSupporter(supporter.getId())
             data  = createSupporterHeartRateForClient(supporter.getId(), name, color, supporter.heartRate.getHeartRate())
+            data["history"] = supporter.heartRate.getHistory()
             payload.append(data)
 
-        socketio.emit("getSupporterHeartRateAllResponse", payload)
+        emit("getSupporterHeartRateAllResponse", payload)
 
         return
 
@@ -120,8 +125,8 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
     def handleGetStadiumBleacher():
         logger.info("[SocketIO] Réception de 'getStadiumBleacher'")
 
-        payload = [{"id": b.stadiumBleacherId, "name": b.name, "color": getColorOfSupporter(b.stadiumBleacherId)} for b in stadiumBleacherList]
-        socketio.emit("getStadiumBleacherResponse", payload)
+        payload = [{"id": b.stadiumBleacherId, "name": b.name, "color": getColorOfStadiumBleacher(b.stadiumBleacherId)} for b in stadiumBleacherList]
+        emit("getStadiumBleacherResponse", payload)
 
         return
 
@@ -148,8 +153,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
                     "average": stadiumBleacher.accelerometer.getAverage(),
                     "minimum": stadiumBleacher.accelerometer.getMinimum(),
                     "maximum": stadiumBleacher.accelerometer.getMaximum(),
+                    "history": stadiumBleacher.accelerometer.getHistory(),
                 })
-                socketio.emit("getStadiumBleacherAccelerometerResponse", payload)
+
+                emit("getStadiumBleacherAccelerometerResponse", payload)
                 return
 
         logger.warning(f"[SocketIO] Aucune tribune trouvé avec l'id={stadiumBleacherId}")
@@ -177,8 +184,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
                     "average": stadiumBleacher.acoustic.getAverage(),
                     "minimum": stadiumBleacher.acoustic.getMinimum(),
                     "maximum": stadiumBleacher.acoustic.getMaximum(),
+                    "history": stadiumBleacher.acoustic.getHistory(),
                 })
-                socketio.emit("getStadiumBleacherAcousticResponse", payload)
+
+                emit("getStadiumBleacherAcousticResponse", payload)
                 return
 
         logger.warning(f"[SocketIO] Aucune tribune trouvé avec l'id={stadiumBleacherId}")
@@ -201,9 +210,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
             name  = getNameOfStadiumBleacher(stadiumBleacher.getId())
             color = getColorOfStadiumBleacher(stadiumBleacher.getId())
             data  = createStadiumBleacherAccelerometerForClient(stadiumBleacher.getId(), name, color, stadiumBleacher.accelerometer.getAccelerometer())
+            data["history"] = stadiumBleacher.accelerometer.getHistory()
             payload.append(data)
 
-        socketio.emit("getStadiumBleacherAccelerometerAllResponse", payload)
+        emit("getStadiumBleacherAccelerometerAllResponse", payload)
 
         return
 
@@ -221,9 +231,10 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
             name  = getNameOfStadiumBleacher(stadiumBleacher.getId())
             color = getColorOfStadiumBleacher(stadiumBleacher.getId())
             data  = createStadiumBleacherAcousticForClient(stadiumBleacher.getId(), name, color, stadiumBleacher.acoustic.getAcoustic())
+            data["history"] = stadiumBleacher.acoustic.getHistory()
             payload.append(data)
 
-        socketio.emit("getStadiumBleacherAcousticAllResponse", payload)
+        emit("getStadiumBleacherAcousticAllResponse", payload)
 
         return
 
@@ -461,6 +472,175 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
         logger.warning(f"{a}")
 
         socketio.emit("modifyEventResponse", {"id": idf, "ts": data["ts"], "match_minute": data["match_minute"]})
+
+        return
+
+
+
+
+# =============================================================================
+#  Remise à zéro des statistiques
+# =============================================================================
+
+    ##
+    # @brief Remet à zéro la moyenne, le minimum et le maximum de la fréquence cardiaque d'un supporter.
+    #
+    # @param supporterId Identifiant du supporter.
+    ##
+    @socketio.on("resetSupporterStatistics")
+    def handleResetSupporterStatistics(supporterId):
+        logger.info(f"[SocketIO] Réception de 'resetSupporterStatistics' pour le supporter id={supporterId}")
+
+        for supporter in supporterList:
+            if supporter.getId() == int(supporterId):
+                supporter.heartRate.resetStatistics()
+                socketio.emit("statisticsReset", {"kind": "supporter", "id": supporter.getId(), "dataType": "heart_rate"})
+                return
+
+        logger.warning(f"[SocketIO] Aucun supporter trouvé avec l'id={supporterId}")
+
+        return
+
+
+
+    ##
+    # @brief Remet à zéro la moyenne, le minimum et le maximum d'une donnée d'une tribune.
+    #
+    # @param stadiumBleacherId Identifiant de la tribune.
+    # @param dataType          Type de données ("accelerometer" ou "acoustic").
+    ##
+    @socketio.on("resetStadiumBleacherStatistics")
+    def handleResetStadiumBleacherStatistics(stadiumBleacherId, dataType):
+        logger.info(f"[SocketIO] Réception de 'resetStadiumBleacherStatistics' pour la tribune id={stadiumBleacherId} ({dataType})")
+
+        for stadiumBleacher in stadiumBleacherList:
+            if stadiumBleacher.getId() == int(stadiumBleacherId):
+                if dataType == "accelerometer":
+                    stadiumBleacher.accelerometer.resetStatistics()
+                elif dataType == "acoustic":
+                    stadiumBleacher.acoustic.resetStatistics()
+                else:
+                    logger.warning(f"[SocketIO] Type de données inconnu : '{dataType}'")
+                    return
+
+                socketio.emit("statisticsReset", {"kind": "stadiumBleacher", "id": stadiumBleacher.getId(), "dataType": dataType})
+                return
+
+        logger.warning(f"[SocketIO] Aucune tribune trouvé avec l'id={stadiumBleacherId}")
+
+        return
+
+# =============================================================================
+#  Évènements du match affichés sur les graphiques
+# =============================================================================
+
+    ##
+    # @brief Calcule la minute de jeu d'un évènement à partir du dernier coup d'envoi.
+    #
+    # @param matchId Identifiant du match.
+    # @param code    Code de l'évènement.
+    # @param ts      Date et heure de l'évènement (datetime).
+    #
+    # @return int|None Minute de jeu, None pour les évènements de phase de jeu.
+    ##
+    def _computeMatchMinute(matchId, code, ts):
+        if code in PHASE_EVENT_CODES:
+            return None
+
+        events = postgresqlClient.fetch("SELECT code, ts FROM event WHERE match = %s AND ts <= %s ORDER BY ts DESC", (matchId, ts))
+        for event in events:
+            minute = (ts - event["ts"]).total_seconds() // 60
+            if event["code"] == 7:
+                return 106 + minute
+            elif event["code"] == 5:
+                return 91 + minute
+            elif event["code"] == 3:
+                return 46 + minute
+            elif event["code"] == 1:
+                return 1 + minute
+
+        return None
+
+
+
+    ##
+    # @brief Envoie au client les évènements du match en cours, horodatés en millisecondes.
+    ##
+    @socketio.on("getMatchEvents")
+    def handleGetMatchEvents():
+        logger.info("[SocketIO] Réception de 'getMatchEvents'")
+
+        match = getCurrentMatch(postgresqlClient)
+        payload = {
+            "matchId":   match["id"],
+            "domicile":  match["domicile"],
+            "exterieur": match["exterieur"],
+            "events":    getMatchEventList(postgresqlClient, match["id"]),
+        }
+
+        emit("getMatchEventsResponse", payload)
+
+        return
+
+
+
+    ##
+    # @brief Ajoute un évènement au match en cours à l'heure donnée.
+    #
+    # @param data Dictionnaire {"code": int, "t": timestamp en ms, "team": id d'équipe ou None}.
+    ##
+    @socketio.on("addMatchEvent")
+    def handleAddMatchEvent(data):
+        logger.info(f"[SocketIO] Réception de 'addMatchEvent': {data}")
+
+        matchId = getCurrentMatch(postgresqlClient)["id"]
+        code = int(data["code"])
+        ts = datetime.fromtimestamp(int(data["t"]) / 1000).replace(microsecond=0)
+        team = int(data["team"]) if data.get("team") is not None else None
+        minute = _computeMatchMinute(matchId, code, ts)
+
+        postgresqlClient.execute("INSERT INTO event (code, ts, match_minute, team, match) VALUES (%s, %s, %s, %s, %s) RETURNING id", (code, ts.strftime("%Y/%m/%d %H:%M:%S"), minute, team, matchId), returning=True)
+        socketio.emit("matchEventsChanged")
+
+        return
+
+
+
+    ##
+    # @brief Déplace un évènement du match dans le temps.
+    #
+    # @param data Dictionnaire {"id": id de l'évènement, "t": nouveau timestamp en ms}.
+    ##
+    @socketio.on("moveMatchEvent")
+    def handleMoveMatchEvent(data):
+        logger.info(f"[SocketIO] Réception de 'moveMatchEvent': {data}")
+
+        event = postgresqlClient.fetch("SELECT code, match FROM event WHERE id = %s", (int(data["id"]),))
+        if not event:
+            logger.warning(f"[SocketIO] Aucun évènement trouvé avec l'id={data['id']}")
+            return
+
+        ts = datetime.fromtimestamp(int(data["t"]) / 1000).replace(microsecond=0)
+        minute = _computeMatchMinute(event[0]["match"], event[0]["code"], ts)
+
+        postgresqlClient.execute("UPDATE event SET ts = %s, match_minute = %s WHERE id = %s", (ts.strftime("%Y/%m/%d %H:%M:%S"), minute, int(data["id"])))
+        socketio.emit("matchEventsChanged")
+
+        return
+
+
+
+    ##
+    # @brief Supprime un évènement du match.
+    #
+    # @param idf Identifiant de l'évènement.
+    ##
+    @socketio.on("deleteMatchEvent")
+    def handleDeleteMatchEvent(idf):
+        logger.info(f"[SocketIO] Réception de 'deleteMatchEvent': id:{idf}")
+
+        postgresqlClient.execute("DELETE FROM event WHERE id = %s", (int(idf),))
+        socketio.emit("matchEventsChanged")
 
         return
 

@@ -1,0 +1,26 @@
+        <div class="topbar" role="banner">
+            <div class="topbar-inner">
+                <a class="brand" href="/">
+                    <span class="brand-logo">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 12 7 12 10 5 14 19 17 12 21 12"></polyline></svg>
+                    </span>
+                    <span>
+                        <span class="brand-title">Monitoring</span>
+                        <span class="brand-subtitle" style="display: block">FC Lorient</span>
+                    </span>
+                </a>
+                <nav class="nav" aria-label="Navigation principale">
+                    <a class="nav-link {{ 'active' if active == 'dashboard' }}" href="/">Dashboard</a>
+                    <a class="nav-link {{ 'active' if active == 'comparison' }}" href="/comparison/Supporter/heart_rate">Comparaison</a>
+                </nav>
+                <div class="partners">
+                    <img class="partner-club" src="{{ url_for('static', filename='images/logos/fc-lorient-blanc.svg') }}" alt="FC Lorient">
+                    <img src="{{ url_for('static', filename='images/logos/lab-sticc-blanc.svg') }}" alt="Lab-STICC">
+                    <img src="{{ url_for('static', filename='images/logos/universite-bretagne-sud-blanc.png') }}" alt="Université Bretagne Sud">
+                </div>
+                <div id="live" class="live hidden" role="status">
+                    <span class="live-dot"></span>
+                    <span id="live-label">En direct</span>
+                </div>
+            </div>
+        </div>
