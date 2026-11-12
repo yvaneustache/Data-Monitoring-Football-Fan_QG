@@ -1,82 +1,27 @@
 [
     {
         "id": 1,
-        "name": "Alice",
+        "name": "Yvan",
         "color": "#E57373"
     },
     {
         "id": 2,
-        "name": "Benjamin",
+        "name": "Ronan",
         "color": "#64B5F6"
     },
     {
         "id": 3,
-        "name": "Claire",
+        "name": "Alex",
         "color": "#81C784"
     },
     {
         "id": 4,
-        "name": "David",
+        "name": "Quentin",
         "color": "#FFF176"
     },
     {
         "id": 5,
-        "name": "Émilie",
+        "name": "Manoé",
         "color": "#FFB74D"
-    },
-    {
-        "id": 6,
-        "name": "Félix",
-        "color": "#F48FB1"
-    },
-    {
-        "id": 7,
-        "name": "Gabrielle",
-        "color": "#BA68C8"
-    },
-    {
-        "id": 8,
-        "name": "Hugo",
-        "color": "#A1887F"
-    },
-    {
-        "id": 9,
-        "name": "Isabelle",
-        "color": "#D32F2F"
-    },
-    {
-        "id": 10,
-        "name": "Julien",
-        "color": "#1976D2"
-    },
-    {
-        "id": 11,
-        "name": "Kiara",
-        "color": "#388E3C"
-    },
-    {
-        "id": 12,
-        "name": "Léo",
-        "color": "#FDD835"
-    },
-    {
-        "id": 13,
-        "name": "Manon",
-        "color": "#F57C00"
-    },
-    {
-        "id": 14,
-        "name": "Nathan",
-        "color": "#C2185B"
-    },
-    {
-        "id": 15,
-        "name": "Ophélie",
-        "color": "#7B1FA2"
-    },
-    {
-        "id": 16,
-        "name": "Paul",
-        "color": "#5D4037"
     }
 ]

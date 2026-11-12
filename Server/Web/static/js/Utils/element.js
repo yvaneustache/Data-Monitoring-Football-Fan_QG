@@ -67,56 +67,10 @@ export function supporterCard(id, name, color)
 
 
 /**
- * @brief Crée et retourne une carte HTML cliquable représentant une tribune.
- *
- * La carte affiche le nom de la tribune, son dernier niveau sonore et sa dernière vibration (éléments .value, mis à jour par setCardValue()).
- *
- * @param {number} id    Identifiant unique de la tribune.
- * @param {string} name  Nom d'affichage de la tribune.
- * @param {string} color Code couleur de la tribune
- *
- * @returns {HTMLAnchorElement} Élément prêt à être inséré dans le DOM.
- */
-export function stadiumBleacherCard(id, name, color)
-{
-    if (DEBUG)
-        console.log(`[Element] stadiumBleacherCard - Création de la carte pour la tribune id=${id} (${name})`);
-
-    const card = document.createElement("a");
-    card.id = "b" + id;
-    card.href = "/stadiumBleacher/" + id;
-    card.classList.add("card", "bleacher-card");
-
-    const head = document.createElement("div");
-    head.classList.add("card-head", "spread");
-
-    const pName = document.createElement("p");
-    pName.classList.add("name");
-    pName.textContent = "Tribune " + name;
-
-    const pId = document.createElement("span");
-    pId.classList.add("badge");
-    pId.textContent = "n°" + id;
-    head.append(pName, pId);
-
-    const metrics = document.createElement("div");
-    metrics.classList.add("metrics");
-    metrics.innerHTML =
-        '<div class="metric-box"><p class="metric-label">Acoustique</p><p class="metric"><span class="value" data-metric="acoustic">—</span> <span class="unit">dB(A)</span></p></div>' +
-        '<div class="metric-box"><p class="metric-label">Vibration</p><p class="metric"><span class="value" data-metric="accelerometer">—</span> <span class="unit">m/s²</span></p></div>';
-
-    card.append(head, metrics);
-
-    return card;
-}
-
-
-
-/**
  * @brief Met à jour la valeur affichée sur une carte du dashboard.
  *
  * @param {HTMLElement} card   Carte (supporter ou tribune).
- * @param {string}      metric Donnée ("heart_rate", "acoustic", "accelerometer").
+ * @param {string}      metric Donnée ("heart_rate", "acoustic", "accelerometer", "temperature").
  * @param {number}      value  Dernière valeur reçue.
  */
 export function setCardValue(card, metric, value)
@@ -125,7 +79,7 @@ export function setCardValue(card, metric, value)
     if (!element || value == null)
         return ;
 
-    const digits = metric === "accelerometer" ? 2 : (metric === "acoustic" ? 1 : 0);
+    const digits = metric === "accelerometer" ? 2 : (metric === "acoustic" || metric === "temperature" ? 1 : 0);
     element.textContent = Number(value).toFixed(digits);
 
     // Jauge de fréquence cardiaque, de 40 à 200 bpm
@@ -134,40 +88,6 @@ export function setCardValue(card, metric, value)
         fill.style.width = `${Math.max(0, Math.min(100, ((value - 40) / 160) * 100))}%`;
 
     return ;
-}
-
-
-
-/**
- * @brief Crée et retourne la carte HTML de comparaison entre supporters ou tribunes.
- *
- * @param type  Type de comparaison.
- * @param data  Type de données de comparaison.
- * @param titre Titre de la carte.
- *
- * @returns {HTMLAnchorElement} Élément prêt à être inséré dans le DOM.
- */
-export function comparisonCard(type, data, titre)
-{
-    if (DEBUG)
-        console.log("[Element] comparisonCard - Création de la carte de comparaison");
-
-    const card = document.createElement("a");
-    card.id = "comparison" + type + (type === "StadiumBleacher" ? "_" + data : "");
-    card.href = "/comparison/" + type + "/" + data;
-    card.classList.add("card", "comparison-card");
-
-    const pId = document.createElement("p");
-    pId.classList.add("id");
-    pId.textContent = "Comparer";
-
-    const pName = document.createElement("p");
-    pName.classList.add("name");
-    pName.textContent = titre;
-
-    card.append(pId, pName);
-
-    return card;
 }
 
 

@@ -1,0 +1,3 @@
+# Exclus de l'image Docker (COPY . .) : vidéos des matchs, trop volumineuses (montées en volume, cf. docker-compose.yml)
+Resources/Video/
+*.mp4

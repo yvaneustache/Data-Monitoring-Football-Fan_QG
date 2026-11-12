@@ -125,6 +125,9 @@ class MQTTClientWrapper:
         logger.info(f"[MQTT] Connexion établie avec le broker (rc={rc})")
 
         if rc == 0:
+            # Connexion (ou reconnexion automatique de paho) établie : les publications sont de nouveau possibles
+            self.state = ConnectionState.CONNECTED
+
             # Réabonnement automatique aux topics mémorisés après reconnexion
             if self.autoReconnect and self.subscribedTopics:
                 for topic in self.subscribedTopics:
@@ -159,10 +162,10 @@ class MQTTClientWrapper:
         if rc == 0:
             self.state = ConnectionState.DISCONNECTED
         else:
-            # Déconnexion inattendue : paho gère la reconnexion si loop_forever est actif
-            if self.autoReconnect:
-                self.state = ConnectionState.RECONNECTING
-                logger.info("[MQTT] Déconnexion inattendue, reconnexion automatique en cours")
+            # Déconnexion inattendue : la boucle réseau de paho (loop_start / loop_forever) se reconnecte seule,
+            # _onConnect() rétablit alors l'état CONNECTED
+            self.state = ConnectionState.RECONNECTING
+            logger.info("[MQTT] Déconnexion inattendue, reconnexion automatique en cours")
 
         if self.userOnDisconnect:
             try:

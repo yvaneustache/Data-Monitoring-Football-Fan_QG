@@ -54,17 +54,18 @@ def main():
         print(f"   QoS       : {Config.MQTT_BROKER_QOS}")
         print()
 
-    meshtasticClient = MeshtasticClientWrapper(Config.MESHTASTIC_HOST, Config.MESHTASTIC_TOPIC, onReceiveCallback=_onReceive)
+    # Reconnexion automatique : le noeud passerelle peut être branché après le lancement du bridge, et débranché/rebranché
+    meshtasticClient = MeshtasticClientWrapper(Config.MESHTASTIC_HOST, Config.MESHTASTIC_TOPIC, onReceiveCallback=_onReceive, autoReconnect=True)
 
     mqttClient = MQTTClientWrapper("bridge_Meshtastic_MQTT", Config.MQTT_BROKER_HOST, Config.MQTT_BROKER_PORT, Config.MQTT_BROKER_KEEPALIVE, qos=Config.MQTT_BROKER_QOS)
 
     try:
-        meshtasticClient.connect()
         mqttClient.connect()
 
         # MQTT en mode non bloquant pour que waitForever() puisse tourner ensuite
         mqttClient.start(blocking=False)
 
+        # Connexion au noeud Meshtastic dans waitForever(), dès qu'il est branché
         meshtasticClient.waitForever()
 
     except KeyboardInterrupt:

@@ -11,23 +11,25 @@
         {% include "partials/topbar.html" %}
         <main class="page layout">
             <div class="main-col">
-                <div class="title-row">
-                    <div class="title-group">
-                        {{ ui.neighbourLink("/supporter/", prevId, "Supporter précédent", "prev") }}
+                <div class="sticky-head">
+                    <div class="title-row">
                         <div class="title-group">
-                            <span class="avatar" style="background-color: {{ color }}">{{ name[:1] }}</span>
-                            <div>
-                                <p class="eyebrow">Supporter n°{{ id }}</p>
-                                <h1>{{ name }}</h1>
+                            {{ ui.neighbourLink("/supporter/", prevId, "Supporter précédent", "prev") }}
+                            <div class="title-group">
+                                <span class="avatar" style="background-color: {{ color }}">{{ name[:1] }}</span>
+                                <div>
+                                    <p class="eyebrow">Supporter n°{{ id }}</p>
+                                    <h1>{{ name }}</h1>
+                                </div>
                             </div>
+                            {{ ui.neighbourLink("/supporter/", nextId, "Supporter suivant", "next") }}
                         </div>
-                        {{ ui.neighbourLink("/supporter/", nextId, "Supporter suivant", "next") }}
+                        <div class="title-actions">
+                            {{ ui.backButton() }}
+                        </div>
                     </div>
-                    <div class="title-actions">
-                        {{ ui.backButton() }}
-                    </div>
+                    {{ ui.timebar() }}
                 </div>
-                {{ ui.timebar() }}
                 {{ ui.measurePanel("heart-rate", "Fréquence cardiaque", "bpm") }}
             </div>
             {{ ui.eventsSidebar() }}

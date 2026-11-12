@@ -13,6 +13,7 @@
 from Server.Config.setting import Config
 from Server.Core.StadiumBleacher.Data.accelerometer import AccelerometerData
 from Server.Core.StadiumBleacher.Data.acoustic import AcousticData
+from Server.Core.StadiumBleacher.Data.temperature import TemperatureData
 from Server.Utils.logger import Logger
 
 # =============================================================================
@@ -47,6 +48,7 @@ class StadiumBleacher:
         self.name              = name                ##< @brief Nom d'affichage de la tribune du stade.
         self.accelerometer     = AccelerometerData() ##< @brief Données d'accélération de la tribune.
         self.acoustic          = AcousticData()      ##< @brief Données acoustic de la tribune.
+        self.temperature       = TemperatureData()   ##< @brief Données de température de la tribune.
 
         return
 
@@ -89,6 +91,8 @@ class StadiumBleacher:
             return self.accelerometer.addData(data["a"])
         elif dataType == "acoustic":
             return self.acoustic.addData(data["a"])
+        elif dataType == "temperature":
+            return self.temperature.addData(data["a"], data.get("p"))
         else:
             # Type inconnu : logué mais non bloquant
             logger.warning(f"[StadiumBleacher] Type de données inconnu ignoré : '{dataType}'")

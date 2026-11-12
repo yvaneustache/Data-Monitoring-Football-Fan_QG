@@ -11,6 +11,7 @@
 # =============================================================================
 
 import json
+import os
 
 from Server.Config.setting import Config
 from Server.Utils.logger import Logger
@@ -134,6 +135,87 @@ def _getStadiumBleacherField(stadiumBleacherId, field):
     raise RuntimeError(message)
 
     return
+
+STADIUM_BLEACHER_METRICS = ["acoustic", "accelerometer", "temperature"] ##< @brief Mesures possibles d'une tribune (champ "metrics" de stadiumBleacher.json).
+
+
+
+##
+# @brief Retourne la liste des tribunes déclarées, avec les mesures de leurs capteurs.
+#
+# @return list Liste de {"id", "name", "color", "metrics"} ; sans champ "metrics", toutes les mesures.
+##
+def getStadiumBleacherList():
+    stadiumBleachers = _loadStadiumBleacherFile()
+    for item in stadiumBleachers:
+        item["metrics"] = [m for m in item.get("metrics", STADIUM_BLEACHER_METRICS) if m in STADIUM_BLEACHER_METRICS]
+
+    return stadiumBleachers
+
+
+
+##
+# @brief Retourne les mesures des capteurs installés dans une tribune.
+#
+# @param stadiumBleacherId Identifiant de la tribune.
+#
+# @return list Mesures parmi "acoustic", "accelerometer", "temperature" (toutes si la tribune n'est pas déclarée).
+##
+def getMetricsOfStadiumBleacher(stadiumBleacherId):
+    for item in getStadiumBleacherList():
+        if item["id"] == stadiumBleacherId:
+            return item["metrics"]
+
+    return list(STADIUM_BLEACHER_METRICS)
+
+
+
+##
+# @brief Enregistre les mesures des capteurs de chaque tribune dans stadiumBleacher.json (les autres champs sont conservés).
+#
+# @param metrics Dictionnaire {identifiant de tribune: liste de mesures}.
+#
+# @throws RuntimeError Si le fichier ne peut pas être écrit.
+##
+def saveStadiumBleacherMetrics(metrics):
+    filePath = Config.PATH["data"] + "stadiumBleacher.json"
+    stadiumBleachers = _loadStadiumBleacherFile()
+
+    for item in stadiumBleachers:
+        if item["id"] in metrics:
+            item["metrics"] = [m for m in STADIUM_BLEACHER_METRICS if m in metrics[item["id"]]]
+
+    try:
+        # Écriture dans un fichier temporaire puis remplacement : pas de fichier à moitié écrit
+        temporaryPath = filePath + ".tmp"
+        with open(temporaryPath, "w") as file:
+            json.dump(stadiumBleachers, file, ensure_ascii=False, indent=4)
+            file.write("\n")
+        os.replace(temporaryPath, filePath)
+    except OSError as e:
+        message = f"[Data] Écriture impossible du fichier tribunes du stade : '{filePath}'"
+        logger.error(message)
+        raise RuntimeError(message) from e
+
+    logger.info(f"[Data] Mesures des tribunes enregistrées : {metrics}")
+
+    return
+
+
+
+##
+# @brief Retourne l'identifiant d'une tribune d'après son nom (stadiumBleacher.json).
+#
+# @param name Nom de la tribune (ex : "Nord-Est").
+#
+# @return int|None Identifiant de la tribune, None si aucune ne porte ce nom.
+##
+def getStadiumBleacherIdByName(name):
+    for item in _loadStadiumBleacherFile():
+        if item["name"] == name:
+            return item["id"]
+
+    return None
 
 # =============================================================================
 #  Lecture du fichier tracker.json
@@ -355,6 +437,26 @@ def createStadiumBleacherAcousticForClient(stadiumBleacherId, name, color, acous
         "name":      name,
         "color":     color,
         "acoustic":  acoustic,
+    }
+
+
+
+##
+# @brief Construit le dictionnaire de données de température envoyé au client web via SocketIO.
+#
+# @param stadiumBleacherId Identifiant de la tribune.
+# @param name              Nom de la tribune.
+# @param color             Couleur associée à la tribune.
+# @param temperature       Dernier envoi de température.
+#
+# @return dict Données formatées pour le client. Format : { "id": …, "name": …, "color": …, "temperature": … }
+##
+def createStadiumBleacherTemperatureForClient(stadiumBleacherId, name, color, temperature):
+    return {
+        "id":          stadiumBleacherId,
+        "name":        name,
+        "color":       color,
+        "temperature": temperature,
     }
 
 

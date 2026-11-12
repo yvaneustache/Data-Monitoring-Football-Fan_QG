@@ -74,6 +74,7 @@ class Config:
         "data":          os.path.join(_project_path, os.getenv("DATA_PATH", "")),
         "image":         os.path.join(_project_path, os.getenv("IMAGE_PATH", "")),
         "log":           os.path.join(_project_path, os.getenv("LOG_PATH", "")),
+        "video":         os.path.join(_project_path, os.getenv("VIDEO_PATH", "Resources/Video/")),
     }
 
 # =============================================================================

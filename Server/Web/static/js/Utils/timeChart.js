@@ -15,6 +15,7 @@
 const MIN_SPAN       = 10 * 1000;        ///< @brief Fenêtre minimale affichée (ms).
 const MAX_SPAN       = 4 * 3600 * 1000;  ///< @brief Fenêtre maximale affichée (ms).
 const MARKER_HIT     = 8;                ///< @brief Distance de saisie d'une ligne d'évènement (px).
+const RECENT_SPAN    = 15 * 1000;        ///< @brief Durée du voile gris en fin de courbe (ms) : mesures pas encore reçues (envoi toutes les 15 s).
 const PHASE_CODES    = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; ///< @brief Codes des évènements de phase de jeu.
 const GOAL_CODE      = 17;               ///< @brief Code de l'évènement "But".
 
@@ -112,11 +113,16 @@ export class TimeNavigator
 {
     /**
      * @param {number} defaultSpan Fenêtre affichée au chargement (ms).
+     * @param {{end?: number, liveLabels?: [string, string]}} options
+     *        end        : fin des données d'un match rejoué, qui remplace l'heure courante (pas de direct) ;
+     *        liveLabels : textes du bouton de retour à la fin (à la fin, ailleurs).
      */
-    constructor(defaultSpan = 5 * 60 * 1000)
+    constructor(defaultSpan = 5 * 60 * 1000, options = {})
     {
+        this.fixedEnd   = options.end ?? null;
+        this.liveLabels = options.liveLabels || ["En direct", "Revenir au direct"];
         this.span      = defaultSpan;
-        this.end       = Date.now();
+        this.end       = this._now();
         this.live      = true;
         this.dataStart = null;
         this.dataEnd   = null;
@@ -167,7 +173,7 @@ export class TimeNavigator
     /** @returns {number} Fin de la fenêtre affichée (ms). */
     max()
     {
-        return this.live ? Date.now() : this.end;
+        return this.live ? this._now() : this.end;
     }
 
     /** @brief Zoome d'un facteur 2 autour du centre de la fenêtre (de l'instant présent en direct). */
@@ -213,8 +219,8 @@ export class TimeNavigator
     panBy(deltaMs)
     {
         const end = this.max() + deltaMs;
-        this.live = end >= Date.now();
-        this.end  = Math.min(end, Date.now());
+        this.live = end >= this._now();
+        this.end  = Math.min(end, this._now());
         this._apply();
     }
 
@@ -226,8 +232,8 @@ export class TimeNavigator
     centerOn(t)
     {
         const end = t + this.span / 2;
-        this.live = end >= Date.now();
-        this.end  = Math.min(end, Date.now());
+        this.live = end >= this._now();
+        this.end  = Math.min(end, this._now());
         this._apply();
     }
 
@@ -263,7 +269,7 @@ export class TimeNavigator
         this.ui.slider.addEventListener("input", () =>
         {
             const start = this._historyStart();
-            const end   = Date.now();
+            const end   = this._now();
             const t     = start + (Number(this.ui.slider.value) / 1000) * Math.max(0, end - start - this.span);
             this.end  = t + this.span;
             this.live = this.end >= end - 1000;
@@ -277,6 +283,16 @@ export class TimeNavigator
     //  Fonctions internes
     // ------------------------------------------------------------------------
 
+    /**
+     * @brief Instant présent : l'heure courante, ou la fin du match rejoué.
+     *
+     * @returns {number} Timestamp (ms).
+     */
+    _now()
+    {
+        return this.fixedEnd ?? Date.now();
+    }
+
     _zoom(factor, anchor)
     {
         const min   = this.min();
@@ -285,17 +301,17 @@ export class TimeNavigator
         const end   = pivot + (1 - anchor) * span;
 
         this.span = span;
-        if (!this.live || end < Date.now() - 1000)
+        if (!this.live || end < this._now() - 1000)
         {
             this.live = false;
-            this.end  = Math.min(end, Date.now());
+            this.end  = Math.min(end, this._now());
         }
         this._apply();
     }
 
     _historyStart()
     {
-        return this.dataStart == null ? Date.now() - this.span : Math.min(this.dataStart, Date.now() - this.span);
+        return this.dataStart == null ? this._now() - this.span : Math.min(this.dataStart, this._now() - this.span);
     }
 
     _apply()
@@ -317,12 +333,14 @@ export class TimeNavigator
         const min = this.min();
         const max = this.max();
 
-        this.ui.range.textContent = `${formatTime(min)} – ${formatTime(max)} · ${_formatSpan(this.span)}`;
-        this.ui.live.textContent  = this.live ? "En direct" : "Revenir au direct";
+        // Bornes de la fenêtre : temps de jeu (cf. MatchEvents.timeLabel), à défaut l'heure
+        const label = this.timeLabel || formatTime;
+        this.ui.range.textContent = `${label(min)} – ${label(max)} · ${_formatSpan(this.span)}`;
+        this.ui.live.textContent  = this.live ? this.liveLabels[0] : this.liveLabels[1];
         this.ui.live.classList.toggle("is-live", this.live);
 
         const start = this._historyStart();
-        const total = Math.max(0, Date.now() - start - this.span);
+        const total = Math.max(0, this._now() - start - this.span);
         this.ui.slider.value = total > 0 ? Math.round(((min - start) / total) * 1000) : 1000;
     }
 }
@@ -346,6 +364,8 @@ export class TimeChart
      *        - unit         {string}        Unité de l'axe vertical.
      *        - min, max     {number}        Bornes fixes de l'axe vertical (optionnel).
      *        - suggestedMin, suggestedMax {number} Bornes indicatives, étendues si besoin (optionnel).
+     *        - onRender {Function} Appelée après chaque dessin du graphique, avec la courbe (optionnel).
+     *        - playhead {MatchVideo} Curseur vidéo déplaçable : propriété cursor (ms) et seekTo(t) (optionnel, rejeu).
      *        - step         {number}        Pas des graduations verticales (optionnel).
      *        - datasets     {Array<{key: string, label: string, color: string}>} Courbes.
      */
@@ -375,7 +395,7 @@ export class TimeChart
                 scales: {
                     x: {
                         type:  "linear",
-                        title: { display: true, text: this.events ? "Heure et minute de jeu" : "Heure", color: textColor, font: { family: cssVar("--font-body"), size: 12, weight: "600" } },
+                        title: { display: true, text: this.events ? "Heure et temps de jeu (min:s)" : "Heure", color: textColor, font: { family: cssVar("--font-body"), size: 12, weight: "600" } },
                         ticks: { color: textColor, maxTicksLimit: 8, maxRotation: 0, callback: (value) => this._tickLabel(value) },
                         grid:  { color: gridColor },
                         border: { color: axisColor },
@@ -396,12 +416,12 @@ export class TimeChart
                     tooltip: {
                         callbacks: {
                             title: (items) => items.length ? this._timeLabel(items[0].parsed.x) : "",
-                            label: (item) => `${item.dataset.label} : ${item.parsed.y} ${options.unit}`,
+                            label: (item) => `${item.dataset.label} : ${this.unit.startsWith("Δ") && item.parsed.y > 0 ? "+" : ""}${item.parsed.y} ${this.unit}`,
                         },
                     },
                 },
             },
-            plugins: [this._eventPlugin()],
+            plugins: [this._recentPlugin(), this._zeroPlugin(), this._eventPlugin(), this._playheadPlugin(), { id: "onRender", afterRender: () => { if (options.onRender) options.onRender(this); } }],
         });
 
         for (const dataset of options.datasets || [])
@@ -409,6 +429,12 @@ export class TimeChart
 
         this._bindPointer();
         this.navigator.register(this);
+        this.unit     = options.unit;
+        this.zeroLine = false;
+        this.playhead = options.playhead || null;
+        if (this.playhead)
+            this.playhead.register(this);
+
         if (this.events)
             this.events.register(this);
     }
@@ -494,6 +520,98 @@ export class TimeChart
     }
 
     /**
+     * @brief Fige les bornes actuelles de l'axe vertical : l'échelle ne suit plus les données
+     *        (ex : courbes lissées du rejeu, à comparer à l'échelle des mesures brutes).
+     */
+    lockYAxis()
+    {
+        // Bornes d'origine (fixes ou automatiques), pour revenir à l'échelle automatique (cf. resetYAxis())
+        if (!this.initialY)
+            this.initialY = { min: this.chart.options.scales.y.min, max: this.chart.options.scales.y.max };
+
+        const y = this.chart.scales.y;
+        this.chart.options.scales.y.min = y.min;
+        this.chart.options.scales.y.max = y.max;
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Change l'unité affichée (titre de l'axe vertical et infobulle).
+     *
+     * @param {string} unit Unité.
+     */
+    setUnit(unit)
+    {
+        this.unit = unit;
+        this.chart.options.scales.y.title.text = unit;
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Couleur des courbes selon la valeur : chaque segment prend la couleur donnée par la fonction
+     *        (null pour revenir à la couleur de chaque courbe).
+     *
+     * @param {Function|null} colorOf Valeur → couleur CSS.
+     */
+    setValueColor(colorOf)
+    {
+        for (const dataset of this.datasets.values())
+            dataset.segment = colorOf ? { borderColor: (ctx) => colorOf((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2) } : undefined;
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Affiche ou masque la ligne du zéro (variations).
+     *
+     * @param {boolean} visible Ligne affichée.
+     */
+    setZeroLine(visible)
+    {
+        this.zeroLine = visible;
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Bornes affichées de l'axe vertical.
+     *
+     * @returns {{min: number, max: number}}
+     */
+    getYRange()
+    {
+        return { min: this.chart.scales.y.min, max: this.chart.scales.y.max };
+    }
+
+    /**
+     * @brief Fixe les bornes de l'axe vertical (choix de l'utilisateur).
+     *
+     * @param {number} min Borne basse.
+     * @param {number} max Borne haute (supérieure à min).
+     */
+    setYRange(min, max)
+    {
+        if (!this.initialY)
+            this.initialY = { min: this.chart.options.scales.y.min, max: this.chart.options.scales.y.max };
+
+        this.chart.options.scales.y.min = min;
+        this.chart.options.scales.y.max = max;
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Revient à l'échelle automatique (d'après les données affichées), puis la fige.
+     */
+    resetYAxis()
+    {
+        if (this.initialY)
+        {
+            this.chart.options.scales.y.min = this.initialY.min;
+            this.chart.options.scales.y.max = this.initialY.max;
+        }
+        this.chart.update("none");
+        this.lockYAxis();
+    }
+
+    /**
      * @brief Affiche ou masque une courbe.
      *
      * @param {string}  key     Identifiant de la courbe.
@@ -533,21 +651,20 @@ export class TimeChart
     // ------------------------------------------------------------------------
 
     /**
-     * @brief Graduation de l'axe horizontal : heure, et minute de jeu en dessous.
+     * @brief Graduation de l'axe horizontal : heure, et temps de jeu en minutes:secondes en dessous ("23:14", "45+2:05").
      */
     _tickLabel(value)
     {
-        const minute = this.events ? this.events.matchMinute(value) : null;
-        return minute ? [formatTime(value), minute] : formatTime(value);
+        const time = this.events ? (this.events.gameTime ? this.events.gameTime(value) : this.events.matchMinute(value)) : null;
+        return time ? [formatTime(value), time] : formatTime(value);
     }
 
     /**
-     * @brief Heure et minute de jeu sur une ligne (infobulle).
+     * @brief Temps de jeu (infobulle), à défaut l'heure.
      */
     _timeLabel(value)
     {
-        const minute = this.events ? this.events.matchMinute(value) : null;
-        return minute ? `${formatTime(value)} · ${minute}` : formatTime(value);
+        return this.events && this.events.timeLabel ? this.events.timeLabel(value) : formatTime(value);
     }
 
     _extendNavigator(points)
@@ -559,19 +676,129 @@ export class TimeChart
     /**
      * @brief Plugin Chart.js dessinant les évènements du match en lignes verticales étiquetées.
      */
+    /**
+     * @brief Plugin Chart.js : voile gris sur les 15 dernières secondes, en direct seulement (les capteurs envoient
+     *        leurs mesures toutes les 15 s : cette période n'est pas encore reçue).
+     */
+    _recentPlugin()
+    {
+        return {
+            id: "recentVeil",
+            beforeDatasetsDraw: (chart) =>
+            {
+                // Rejeu d'un match : pas de voile
+                if (this.navigator.fixedEnd != null)
+                    return ;
+
+                const { ctx, chartArea } = chart;
+                const scale = chart.scales.x;
+                const now   = Date.now();
+                const left  = Math.max(chartArea.left, scale.getPixelForValue(now - RECENT_SPAN));
+                const right = Math.min(chartArea.right, scale.getPixelForValue(now));
+                if (right <= left)
+                    return ;
+
+                ctx.save();
+                ctx.fillStyle = "rgba(128, 128, 128, 0.18)";
+                ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+                ctx.restore();
+            },
+        };
+    }
+
+    /**
+     * @brief Plugin Chart.js : curseur vidéo (instant affiché par la vidéo du match), déplaçable à la souris.
+     */
+    _playheadPlugin()
+    {
+        return {
+            id: "videoPlayhead",
+            afterDatasetsDraw: (chart) =>
+            {
+                const t = this.drag && this.drag.type === "playhead" ? this.drag.t : (this.playhead ? this.playhead.cursor : null);
+                const scale = chart.scales.x;
+                if (t == null || t < scale.min || t > scale.max)
+                    return ;
+
+                const { ctx, chartArea } = chart;
+                const x     = scale.getPixelForValue(t);
+                const color = "#4FC3F7";
+
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, chartArea.top);
+                ctx.lineTo(x, chartArea.bottom);
+                ctx.stroke();
+
+                // Poignée en bas de la courbe : « ▶ Vidéo mm:ss » (temps de jeu du match, à défaut l'heure)
+                const time  = this.events && this.events.gameTime ? this.events.gameTime(t) : null;
+                const label = `▶ Vidéo ${time || (this.events && this.events.timeLabel ? this.events.timeLabel(t) : formatTime(t))}`;
+                ctx.font = `600 12px ${cssVar("--font-body")}`;
+                const width = ctx.measureText(label).width + 14;
+                const left  = Math.min(chartArea.right - width, Math.max(chartArea.left, x - width / 2));
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(left, chartArea.bottom - 24, width, 20, 6);
+                ctx.fill();
+                ctx.fillStyle    = "#1B1615";
+                ctx.textBaseline = "middle";
+                ctx.fillText(label, left + 7, chartArea.bottom - 13.5);
+                ctx.restore();
+            },
+        };
+    }
+
+    /** @brief Plugin Chart.js : ligne du zéro (mode variations). */
+    _zeroPlugin()
+    {
+        return {
+            id: "zeroLine",
+            beforeDatasetsDraw: (chart) =>
+            {
+                const y = chart.scales.y;
+                if (!this.zeroLine || y.min > 0 || y.max < 0)
+                    return ;
+
+                const { ctx, chartArea } = chart;
+                const pixel = y.getPixelForValue(0);
+                ctx.save();
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+                ctx.lineWidth   = 1.5;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(chartArea.left, pixel);
+                ctx.lineTo(chartArea.right, pixel);
+                ctx.stroke();
+                ctx.restore();
+            },
+        };
+    }
+
+    /** @brief Le pointeur est-il sur le curseur vidéo ? */
+    _playheadAt(x)
+    {
+        if (!this.playhead || this.playhead.cursor == null)
+            return false;
+
+        return Math.abs(this.chart.scales.x.getPixelForValue(this.playhead.cursor) - x) <= MARKER_HIT;
+    }
+
     _eventPlugin()
     {
         return {
             id: "matchEvents",
             afterDatasetsDraw: (chart) =>
             {
-                if (!this.events)
+                // Évènements masqués (bouton de la colonne des évènements)
+                if (!this.events || this.events.visible === false)
                     return ;
 
                 const { ctx, chartArea } = chart;
                 const scale = chart.scales.x;
 
-                for (const event of this.events.list)
+                for (const event of this.events.list.filter((e) => !this.events.isShown || this.events.isShown(e)))
                 {
                     const t = this.drag && this.drag.type === "marker" && this.drag.id === event.id ? this.drag.t : event.t;
                     if (t < scale.min || t > scale.max)
@@ -597,11 +824,16 @@ export class TimeChart
                     const width = ctx.measureText(style.short).width + 14;
                     ctx.translate(x + 3, chartArea.top + 6 + width);
                     ctx.rotate(-Math.PI / 2);
-                    ctx.fillStyle = style.color;
-                    ctx.beginPath();
-                    ctx.roundRect(0, 0, width, 20, 6);
-                    ctx.fill();
-                    ctx.fillStyle    = style.textColor;
+                    // Étiquette sur fond coloré, ou texte seul dans la couleur de l'évènement (évènements libres)
+                    if (!style.plain)
+                    {
+                        ctx.fillStyle = style.color;
+                        ctx.beginPath();
+                        ctx.roundRect(0, 0, width, 20, 6);
+                        ctx.fill();
+                    }
+                    ctx.fillStyle    = style.plain ? style.color : style.textColor;
+                    ctx.font         = `${style.plain ? 700 : 600} 12px ${cssVar("--font-body")}`;
                     ctx.textBaseline = "middle";
                     ctx.fillText(style.short, 7, 10.5);
 
@@ -610,7 +842,7 @@ export class TimeChart
                     // Heure affichée pendant le déplacement
                     if (this.drag && this.drag.type === "marker" && this.drag.id === event.id)
                     {
-                        const label = formatTime(t);
+                        const label = this.events.timeLabel ? this.events.timeLabel(t) : formatTime(t);
                         ctx.save();
                         ctx.font = `600 12px ${cssVar("--font-body")}`;
                         const w = ctx.measureText(label).width + 12;
@@ -633,6 +865,9 @@ export class TimeChart
      */
     _markerAt(x)
     {
+        if (!this.events || this.events.visible === false)
+            return null;
+
         if (!this.events)
             return null;
 
@@ -640,7 +875,7 @@ export class TimeChart
         let best = null;
         let bestDistance = MARKER_HIT;
 
-        for (const event of this.events.list)
+        for (const event of this.events.list.filter((e) => !this.events.isShown || this.events.isShown(e)))
         {
             if (event.t < scale.min || event.t > scale.max)
                 continue;
@@ -666,6 +901,18 @@ export class TimeChart
 
         const localX = (e) => e.clientX - canvas.getBoundingClientRect().left;
 
+        // Double-clic : renommage d'un évènement libre, ou ajout d'un évènement libre à l'instant visé
+        canvas.addEventListener("dblclick", (e) =>
+        {
+            const x      = localX(e);
+            const area   = this.chart.chartArea;
+            const marker = this._markerAt(x);
+            if (marker && this.events.promptRename)
+                this.events.promptRename(marker.id);
+            else if (!marker && this.events && this.events.visible !== false && x >= area.left && x <= area.right)
+                this.events.addFreeAt(this.chart.scales.x.getValueForPixel(x));
+        });
+
         canvas.addEventListener("pointerdown", (e) =>
         {
             const x    = localX(e);
@@ -675,9 +922,17 @@ export class TimeChart
 
             canvas.setPointerCapture(e.pointerId);
 
+            // Curseur vidéo : prioritaire sur les évènements
+            if (this._playheadAt(x))
+            {
+                this.drag = { type: "playhead", t: this.playhead.cursor };
+                canvas.style.cursor = "ew-resize";
+                return ;
+            }
+
             const marker = this._markerAt(x);
             if (marker)
-                this.drag = { type: "marker", id: marker.id, t: marker.t };
+                this.drag = { type: "marker", id: marker.id, t: marker.t, x0: e.clientX, moved: false };
             else
                 this.drag = { type: "pan", x: e.clientX };
 
@@ -690,7 +945,16 @@ export class TimeChart
 
             if (!this.drag)
             {
-                canvas.style.cursor = this._markerAt(localX(e)) ? "ew-resize" : "grab";
+                canvas.style.cursor = this._playheadAt(localX(e)) || this._markerAt(localX(e)) ? "ew-resize" : "grab";
+                return ;
+            }
+
+            // Curseur vidéo : la vidéo suit pendant le glissement
+            if (this.drag.type === "playhead")
+            {
+                const x = Math.min(this.chart.chartArea.right, Math.max(this.chart.chartArea.left, localX(e)));
+                this.drag.t = scale.getValueForPixel(x);
+                this.playhead.seekTo(this.drag.t);
                 return ;
             }
 
@@ -703,6 +967,11 @@ export class TimeChart
             }
             else
             {
+                // Petit mouvement : simple clic (pas de déplacement)
+                if (!this.drag.moved && Math.abs(e.clientX - this.drag.x0) < 4)
+                    return ;
+                this.drag.moved = true;
+
                 const x = Math.min(this.chart.chartArea.right, Math.max(this.chart.chartArea.left, localX(e)));
                 this.drag.t = Math.round(scale.getValueForPixel(x) / 1000) * 1000;
                 this.chart.update("none");
@@ -711,8 +980,15 @@ export class TimeChart
 
         const end = () =>
         {
-            if (this.drag && this.drag.type === "marker")
-                this.events.move(this.drag.id, this.drag.t);
+            if (this.drag && this.drag.type === "playhead")
+                this.playhead.seekTo(this.drag.t);
+            else if (this.drag && this.drag.type === "marker")
+            {
+                if (this.drag.moved)
+                    this.events.move(this.drag.id, this.drag.t);
+                else if (this.events.onEventClick)
+                    this.events.onEventClick(this.drag.id);
+            }
 
             this.drag = null;
             canvas.style.cursor = "grab";

@@ -28,5 +28,10 @@
         "code": 5,
         "name": "tracker",
         "topic": "monitoring/tracker/"
+    },
+    {
+        "code": 6,
+        "name": "temperature",
+        "topic": "monitoring/temperature/"
     }
 ]

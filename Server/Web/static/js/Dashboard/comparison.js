@@ -3,7 +3,7 @@
  *
  * @brief Logique de la page de comparaison.
  *
- * Superpose sur un même graphique les courbes de tous les supporters (fréquence cardiaque) ou de toutes les tribunes (vibration ou acoustique). Chaque courbe peut être masquée ou réaffichée en cliquant sur son nom dans la légende.
+ * Superpose sur un même graphique les courbes de tous les supporters (fréquence cardiaque) ou de toutes les tribunes (vibration, acoustique ou température). Chaque courbe peut être masquée ou réaffichée en cliquant sur son nom dans la légende.
  */
 
 // ============================================================================
@@ -47,6 +47,16 @@ const CONFIGURATIONS = {
         unit:       "dB(A)",
         digits:     1,
         axis:       { suggestedMin: 30, suggestedMax: 90 },
+    },
+    temperature: {
+        request:    "getStadiumBleacherTemperatureAll",
+        response:   "getStadiumBleacherTemperatureAllResponse",
+        live:       "newStadiumBleacherTemperature",
+        connection: "stadiumBleacherConnection",
+        field:      "temperature",
+        unit:       "°C",
+        digits:     1,
+        axis:       { suggestedMin: 10, suggestedMax: 30 },
     },
 };
 
@@ -107,9 +117,12 @@ socket.on(config.response, (dataList) =>
 
     for (const data of dataList)
     {
+        if (!_isAllowed(data.id))
+            continue;
+
         _addSeries(data.id, data.name, data.color);
         chart.setHistory(String(data.id), data.history);
-        _setValue(data.id, data.history);
+        _setValue(data, data.history);
     }
 });
 
@@ -120,9 +133,12 @@ socket.on(config.response, (dataList) =>
  */
 socket.on(config.live, (data) =>
 {
+    if (!_isAllowed(data.id))
+        return ;
+
     _addSeries(data.id, data.name, data.color);
     chart.addPoints(String(data.id), data.points);
-    _setValue(data.id, data.points);
+    _setValue(data, data.points);
 });
 
 
@@ -138,6 +154,18 @@ socket.on(config.connection, () =>
 
 
 /**
+ * @brief Remise à zéro (bouton du Dashboard, page Tribune ou Supporter) : valeur de la légende affichée « — ».
+ */
+socket.on("statisticsReset", (data) =>
+{
+    const kind = window.type === "Supporter" ? "supporter" : "stadiumBleacher";
+    if (data.kind === kind && data.dataType === window.data && series.has(data.id))
+        _setValue({ id: data.id, current: data.current ?? null });
+});
+
+
+
+/**
  * @brief Fermeture du serveur.
  */
 socket.on("serverClose", () =>
@@ -148,6 +176,17 @@ socket.on("serverClose", () =>
 // ============================================================================
 //  Fonctions internes
 // ============================================================================
+
+/**
+ * @brief Indique si une tribune ou un supporter est affiché dans la comparaison.
+ */
+function _isAllowed(id)
+{
+    // Tribunes : seules celles équipées du capteur comparé ; supporters : tous
+    return !Array.isArray(window.allowedIds) || window.allowedIds.includes(id);
+}
+
+
 
 /**
  * @brief Ajoute une courbe et son bouton de légende s'ils n'existent pas encore.
@@ -203,10 +242,14 @@ function _setVisible(id, visible)
 
 
 /**
- * @brief Affiche la dernière valeur d'une courbe dans la légende.
+ * @brief Affiche la valeur actuelle d'une courbe dans la légende : celle du serveur (maximum du dernier envoi
+ *        du capteur, vide après une remise à zéro), à défaut la dernière mesure.
  */
-function _setValue(id, points)
+function _setValue(data, points)
 {
-    if (points && points.length)
-        series.get(id).value.textContent = `${Number(points[points.length - 1][1]).toFixed(config.digits)} ${config.unit}`;
+    const value = "current" in data ? data.current : (points && points.length ? points[points.length - 1][1] : undefined);
+    if (value === undefined)
+        return ;
+
+    series.get(data.id).value.textContent = value == null ? `— ${config.unit}` : `${Number(value).toFixed(config.digits)} ${config.unit}`;
 }

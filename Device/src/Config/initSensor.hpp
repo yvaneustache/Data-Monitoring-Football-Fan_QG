@@ -34,6 +34,10 @@
 #define SENSOR INMP441 ///< @brief Alias vers la classe concrète MinIMU_9_v6, résolu à la compilation.
 #endif // INMP441
 
+#ifdef _DS18B20_
+#define SENSOR DS18B20 ///< @brief Alias vers la classe concrète DS18B20, résolu à la compilation.
+#endif // _DS18B20_
+
 // ============================================================================
 //  Vérification de l'initialisation d'un capteur
 // ============================================================================
@@ -42,7 +46,7 @@
 #error "Erreur de configuration: Aucun capteur n'est initialisé"
 #endif // SENSOR
 
-#if (defined(POLARH10) + defined(MINIMU_9_V6) + defined(_INMP441_)) != 1
+#if (defined(POLARH10) + defined(MINIMU_9_V6) + defined(_INMP441_) + defined(_DS18B20_)) != 1
 #error "Erreur de configuration: Plusieurs capteurs sont définis"
 #endif
 

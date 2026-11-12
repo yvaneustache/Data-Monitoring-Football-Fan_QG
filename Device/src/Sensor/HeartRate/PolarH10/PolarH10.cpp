@@ -84,9 +84,11 @@ std::string PolarH10::formatData(PolarH10Data & data, int supporterId)
     json["t"] = getMQTTTopic(SensorType::HEART_RATE);
     json["n"] = PolarH10::name;
     json["id"] = supporterId;
+    // Buffer circulaire envoyé dans l'ordre chronologique : formatData() est appelé après
+    // l'incrément de l'index, la case heartRateIndex contient donc la mesure la plus ancienne
     JsonArray array = json["hr"].to<JsonArray>();
-    for (int i=0; i < NB_VALUE; i++)
-        array.add(data.heartRate[i]);
+    for (int k=0; k < NB_VALUE; k++)
+        array.add(data.heartRate[(data.heartRateIndex + k) % NB_VALUE]);
 
     // Sérialisation en chaîne JSON + ajout d'un saut de ligne comme délimiteur de message
     serializeJson(json, jsonString);

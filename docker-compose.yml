@@ -78,6 +78,10 @@ services:
             context: .
             dockerfile: Server/Dockerfile
         container_name: bridge-meshcore-mqtt
+        # Lancé seulement à la demande (docker compose --profile meshcore up) : il ne doit pas tourner en même temps
+        # que bridge-meshtastic-mqtt, dont il pourrait ouvrir le port série (redémarrage de la passerelle)
+        profiles:
+            - meshcore
         env_file:
             - .env
         environment:
@@ -124,6 +128,12 @@ services:
                 condition: service_started
         env_file:
             - .env
+        # Données de configuration modifiables depuis l'interface (capteurs des tribunes dans stadiumBleacher.json) :
+        # écrites dans le dossier du projet, conservées après redémarrage ou reconstruction de l'image
+        volumes:
+            - ./Resources/Data:/Server/Resources/Data
+            # Vidéos des matchs pour le rejeu (exclues de l'image : cf. .dockerignore) ; videos.json modifié depuis le rejeu
+            - ./Resources/Video:/Server/Resources/Video
         command: python -m Server.Web.app
         ports:
             - "${WEB_PORT}:${WEB_PORT}"

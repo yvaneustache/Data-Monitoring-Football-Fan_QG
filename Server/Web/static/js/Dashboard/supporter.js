@@ -13,6 +13,7 @@
 import { TimeNavigator, bindLiveIndicator } from "../Utils/timeChart.js";
 import { MatchEvents } from "../Utils/matchEvents.js";
 import { MeasurePanel, showToast } from "../Utils/measurePanel.js";
+import { fitChartsToScreen } from "../Utils/fitCharts.js";
 
 // ============================================================================
 //  Initialisation
@@ -93,7 +94,7 @@ socket.on("supporterConnection", (data) =>
 socket.on("statisticsReset", (data) =>
 {
     if (data.kind === "supporter" && data.id === window.id)
-        panel.setStatistics({ average: null, minimum: null, maximum: null });
+        panel.setStatistics(data);
 });
 
 
@@ -119,3 +120,6 @@ socket.on("serverClose", () =>
 
     window.location.href = "/";
 });
+
+// Hauteur des courbes adaptée à la hauteur de l'écran : tous les blocs tiennent sans défilement
+fitChartsToScreen(document.querySelector(".main-col"));

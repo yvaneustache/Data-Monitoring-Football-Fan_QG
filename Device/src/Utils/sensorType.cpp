@@ -31,6 +31,8 @@ int getMQTTTopic(SensorType type)
             return 3;
         case SensorType::ACOUSTIC:
             return 4;
+        case SensorType::TEMPERATURE:
+            return 6;
         default:
             return 0;
     }

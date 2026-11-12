@@ -11,23 +11,26 @@
         {% include "partials/topbar.html" %}
         <main class="page layout">
             <div class="main-col">
-                <div class="title-row">
-                    <div>
-                        <p class="eyebrow">Comparaison</p>
-                        <h1 id="title" style="font-size: 56px; line-height: 1">
-                            {% if data == "heart_rate" %}Fréquence cardiaque{% elif data == "accelerometer" %}Vibration{% else %}Acoustique{% endif %}
-                        </h1>
+                <div class="sticky-head">
+                    <div class="title-row">
+                        <div>
+                            <p class="eyebrow">Comparaison</p>
+                            <h1 id="title" style="font-size: 56px; line-height: 1">
+                                {% if data == "heart_rate" %}Fréq. cardiaque{% elif data == "accelerometer" %}Vibration{% elif data == "temperature" %}Température{% else %}Acoustique{% endif %}
+                            </h1>
+                        </div>
+                        <div class="title-actions">
+                            <nav class="panel-actions" aria-label="Données comparées">
+                                <a class="btn {{ 'btn-primary' if data == 'acoustic' }}" href="/comparison/StadiumBleacher/acoustic">Acoustique</a>
+                                <a class="btn {{ 'btn-primary' if data == 'accelerometer' }}" href="/comparison/StadiumBleacher/accelerometer">Vibration</a>
+                                <a class="btn {{ 'btn-primary' if data == 'temperature' }}" href="/comparison/StadiumBleacher/temperature">Température</a>
+                                <a class="btn {{ 'btn-primary' if data == 'heart_rate' }}" href="/comparison/Supporter/heart_rate">Cardio</a>
+                            </nav>
+                            {{ ui.backButton() }}
+                        </div>
                     </div>
-                    <div class="title-actions">
-                        <nav class="panel-actions" aria-label="Données comparées">
-                            <a class="btn {{ 'btn-primary' if data == 'heart_rate' }}" href="/comparison/Supporter/heart_rate">Cardio</a>
-                            <a class="btn {{ 'btn-primary' if data == 'accelerometer' }}" href="/comparison/StadiumBleacher/accelerometer">Vibration</a>
-                            <a class="btn {{ 'btn-primary' if data == 'acoustic' }}" href="/comparison/StadiumBleacher/acoustic">Acoustique</a>
-                        </nav>
-                        {{ ui.backButton() }}
-                    </div>
+                    {{ ui.timebar() }}
                 </div>
-                {{ ui.timebar() }}
                 <section class="panel" aria-labelledby="series-title">
                     <div class="panel-header">
                         <h2 id="series-title">{% if type == "Supporter" %}Tous les supporters{% else %}Toutes les tribunes{% endif %}</h2>
@@ -53,6 +56,7 @@
             window.sensorDelay = {{ sensorDelay }};
             window.data = {{ data | tojson }};
             window.type = {{ type | tojson }};
+            window.allowedIds = {{ allowedIds | tojson }};
         </script>
         <script type="module" src="{{ url_for('static', filename='js/Dashboard/comparison.js') }}"></script>
     </body>

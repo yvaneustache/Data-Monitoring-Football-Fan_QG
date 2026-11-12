@@ -19,7 +19,7 @@ from Server.Core.Supporter.supporter import Supporter
 from Server.Core.StadiumBleacher.stadiumBleacher import StadiumBleacher
 from Server.Core.Tracker.tracker import Tracker
 from Server.Utils.display import printBanner
-from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, makeMessageSystem, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker
+from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, createStadiumBleacherTemperatureForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, makeMessageSystem, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker
 from Server.Core.mqtt import MQTTClientWrapper
 from Server.Core.postgresql import PostgreSQLClientWrapper
 from Server.Web.routes import registerRoutes
@@ -132,6 +132,10 @@ def _onMqttMessage(message):
         if not _stadiumBleacherExists(idf):
             _createStadiumBleacher(idf, dataType)
         _addStadiumBleacherAcoustic(idf, data)
+    elif dataType == "temperature":
+        if not _stadiumBleacherExists(idf):
+            _createStadiumBleacher(idf, dataType)
+        _addStadiumBleacherTemperature(idf, data)
     elif dataType == "system":
         socketio.emit("newSystemInfo", makeMessageSystem(data))
     elif dataType == "tracker":
@@ -229,6 +233,7 @@ def _addSupporterHeartRate(supporterId, data):
 
             payload = createSupporterHeartRateForClient(supporter.getId(), name, color, data["hr"])
             payload.update({
+                "current": supporter.heartRate.getCurrent(),
                 "average": supporter.heartRate.getAverage(),
                 "minimum": supporter.heartRate.getMinimum(),
                 "maximum": supporter.heartRate.getMaximum(),
@@ -285,6 +290,9 @@ def _createStadiumBleacher(stadiumBleacherId, topic):
     elif topic == "acoustic":
         # acoustic=None: valeur initiale avant la première mesure
         payload = createStadiumBleacherAcousticForClient(stadiumBleacherId, name, color, None)
+    elif topic == "temperature":
+        # temperature=None: valeur initiale avant la première mesure
+        payload = createStadiumBleacherTemperatureForClient(stadiumBleacherId, name, color, None)
     else:
         logger.warning(f"[APP] Topic MQTT inconnu (topic={topic})")
         return
@@ -311,6 +319,7 @@ def _addStadiumBleacherAccelerometer(stadiumBleacherId, data):
 
             payload = createStadiumBleacherAccelerometerForClient(stadiumBleacher.getId(), name, color, data["a"])
             payload.update({
+                "current": stadiumBleacher.accelerometer.getCurrent(),
                 "average": stadiumBleacher.accelerometer.getAverage(),
                 "minimum": stadiumBleacher.accelerometer.getMinimum(),
                 "maximum": stadiumBleacher.accelerometer.getMaximum(),
@@ -342,12 +351,44 @@ def _addStadiumBleacherAcoustic(stadiumBleacherId, data):
 
             payload = createStadiumBleacherAcousticForClient(stadiumBleacher.getId(), name, color, data["a"])
             payload.update({
+                "current": stadiumBleacher.acoustic.getCurrent(),
                 "average": stadiumBleacher.acoustic.getAverage(),
                 "minimum": stadiumBleacher.acoustic.getMinimum(),
                 "maximum": stadiumBleacher.acoustic.getMaximum(),
                 "points":  points,
             })
             socketio.emit("newStadiumBleacherAcoustic", payload)
+            return
+
+    logger.warning(f"[APP] Données reçues pour une tribune inconnu (id={stadiumBleacherId}), message ignoré")
+
+    return
+
+
+
+##
+# @brief Enregistre une nouvelle mesure de température pour la tribune correspondant et pousse la mise à jour aux clients web via SocketIO.
+#
+# @param stadiumBleacherId Identifiant de la tribune.
+# @param data              Dictionnaire de données reçu depuis le broker MQTT.
+##
+def _addStadiumBleacherTemperature(stadiumBleacherId, data):
+    name              = getNameOfStadiumBleacher(stadiumBleacherId)
+    color             = getColorOfStadiumBleacher(stadiumBleacherId)
+
+    for stadiumBleacher in stadiumBleacherList:
+        if stadiumBleacher.getId() == stadiumBleacherId:
+            points = stadiumBleacher.addData(data, "temperature")
+
+            payload = createStadiumBleacherTemperatureForClient(stadiumBleacher.getId(), name, color, data["a"])
+            payload.update({
+                "current": stadiumBleacher.temperature.getCurrent(),
+                "average": stadiumBleacher.temperature.getAverage(),
+                "minimum": stadiumBleacher.temperature.getMinimum(),
+                "maximum": stadiumBleacher.temperature.getMaximum(),
+                "points":  points,
+            })
+            socketio.emit("newStadiumBleacherTemperature", payload)
             return
 
     logger.warning(f"[APP] Données reçues pour une tribune inconnu (id={stadiumBleacherId}), message ignoré")

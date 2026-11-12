@@ -1,4 +1,22 @@
 {% import "partials/components.html" as ui %}
+{# Carte des mesures d'un coin du stade équipé de capteurs #}
+{% macro cornerCard(corner) %}
+                    {% set metrics = {"acoustic": ("Acoustique", "dB(A)"), "accelerometer": ("Vibration", "m/s²"), "temperature": ("Température", "°C")} %}
+                    <a class="corner-card" {% if corner.id %}href="/stadiumBleacher/{{ corner.id }}" data-corner-id="{{ corner.id }}"{% endif %}>
+                        <div class="corner-head">
+                            <span class="corner-number">{{ corner.number }}</span>
+                            <div>
+                                <h3>{{ corner.title }}</h3>
+                                <p class="corner-stands" title="{{ corner.place }}">{{ corner.place }}</p>
+                            </div>
+                        </div>
+                        <div class="corner-values">
+                            {% for metric in corner.metrics %}
+                            <div class="corner-value" data-kind="{{ metric }}"><p class="corner-label">{{ metrics[metric][0] }}</p><p><span data-metric="{{ metric }}">—</span><span class="corner-unit">{{ metrics[metric][1] }}</span></p></div>
+                            {% endfor %}
+                        </div>
+                    </a>
+{% endmacro %}
 <!DOCTYPE html>
 <html lang="fr">
     <head>
@@ -9,10 +27,71 @@
     </head>
     <body>
         {% include "partials/topbar.html" %}
-        <main class="page sections">
-            <div class="page-actions">
-                {{ ui.exportButton() }}
+        {# Bandeau vertical du plan d'installation : tribune du Moustoir et vague orange, sur toute la hauteur #}
+        <aside class="side-art" data-side-art>
+            <button class="side-art-toggle" type="button" data-side-art-toggle aria-pressed="false" title="Fermer le bandeau" aria-label="Fermer le bandeau">×</button>
+            <img class="side-art-image" src="{{ url_for('static', filename='images/moustoir-orange.webp') }}" alt="" aria-hidden="true">
+            <div class="side-art-logos">
+                <img class="side-art-club" src="{{ url_for('static', filename='images/logos/fc-lorient-blanc.svg') }}" alt="FC Lorient">
+                <img class="side-art-lab" src="{{ url_for('static', filename='images/logos/lab-sticc-blanc.svg') }}" alt="Lab-STICC">
+                <img class="side-art-ubs" src="{{ url_for('static', filename='images/logos/universite-bretagne-sud-blanc.png') }}" alt="Université Bretagne Sud">
             </div>
+        </aside>
+        <main class="page sections with-side-art">
+            <section class="match-banner" aria-label="Match en cours" data-match-banner>
+                <a class="match-settings" href="/event/preparation" title="Préparation du match : équipes, stade, capteurs des tribunes" aria-label="Paramètres du match">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </a>
+                <div class="match-team">
+                    <span class="team-logo" data-team-logo="domicile"></span>
+                    <span class="team-name" data-team-name="domicile">Domicile</span>
+                </div>
+                <div class="match-center">
+                    <p class="match-score" aria-label="Score"><span data-team-score="domicile">0</span><span class="match-score-sep">–</span><span data-team-score="exterieur">0</span></p>
+                    <p class="match-date" data-match-date></p>
+                    <p class="match-stadium">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        <span data-match-stadium>Stade du Moustoir</span>
+                    </p>
+                </div>
+                <div class="match-team">
+                    <span class="team-logo" data-team-logo="exterieur"></span>
+                    <span class="team-name" data-team-name="exterieur">Extérieur</span>
+                </div>
+            </section>
+            <section aria-labelledby="stadium-title">
+                {# En haut : titre et choix de la mesure ; en dessous : vue du stade et cartes des points de mesure sur la même hauteur #}
+                <div class="stadium-plan">
+                    <div class="stadium-head">
+                        <div>
+                            <p class="eyebrow">Stade du Moustoir</p>
+                            <h2 id="stadium-title">Mesures des tribunes</h2>
+                        </div>
+                        <button id="reset-all" class="btn stadium-reset" type="button" title="Remet à « — » les valeurs actuelles, moyennes, minimums et maximums de toutes les tribunes et de tous les supporters (les courbes sont conservées)">
+                            {{ ui.resetIcon() }}
+                            Tout remettre à zéro
+                        </button>
+                        <div class="pin-metrics" role="group" aria-label="Mesure représentée par les colonnes">
+                            <button class="btn is-active" type="button" data-pin-metric="acoustic" aria-pressed="true">Acoustique</button>
+                            <button class="btn" type="button" data-pin-metric="accelerometer" aria-pressed="false">Vibration</button>
+                            <button class="btn" type="button" data-pin-metric="temperature" aria-pressed="false">Température</button>
+                        </div>
+                    </div>
+                    <div class="stadium-view">
+                        <img src="{{ url_for('static', filename='images/moustoir-3d.webp') }}" alt="Vue du stade du Moustoir avec les tribunes Jean Floc'h, Lorient Agglomération, B&B Hôtels et Crédit Mutuel de Bretagne">
+                        {% for corner in corners %}
+                        <div class="pin" style="left: {{ corner.x }}%; top: {{ corner.y }}%" data-pin-metrics="{{ corner.metrics | join(' ') }}" {% if corner.id %}data-pin-id="{{ corner.id }}"{% endif %}>
+                            <span class="pin-base"></span>
+                            <span class="pin-column" data-pin-column></span>
+                            <span class="pin-tag" data-pin-tag><b>{{ corner.number }}</b><span data-pin-value>—</span><small data-pin-unit>dB(A)</small></span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="stadium-cards">
+                        {% for corner in corners %}{{ cornerCard(corner) }}{% endfor %}
+                    </div>
+                </div>
+            </section>
             <section aria-labelledby="supporters-title">
                 <div class="section-head">
                     <div>
@@ -21,19 +100,22 @@
                     </div>
                     <p id="supporters-count" class="section-count"></p>
                 </div>
-                <div id="gridSupporter" class="grid grid-supporters"></div>
                 <p id="supporters-empty" class="empty-state">Aucun supporter connecté pour l'instant.</p>
-            </section>
-            <section aria-labelledby="bleachers-title">
-                <div class="section-head">
-                    <div>
-                        <p class="eyebrow">Ambiance du stade</p>
-                        <h2 id="bleachers-title">Tribunes</h2>
+                {# Deux représentations à comparer : cartes en direct (A) et frise du match (B) #}
+                <div id="hrOptions" class="hr-options hidden">
+                    <div id="hrCards" class="hr-cards"></div>
+                    <div class="hr-timeline-head">
+                        <button class="btn hr-view-toggle" type="button" data-hr-view aria-pressed="false">Vue compacte</button>
                     </div>
-                    <p id="bleachers-count" class="section-count"></p>
+                    <div id="hrTimeline" class="hr-timeline"></div>
+                    <div class="hr-legend">
+                        <span><b style="background-color: #5A8F6A"></b>Repos &lt; 100</span>
+                        <span><b style="background-color: #C9A227"></b>Modéré 100–130</span>
+                        <span><b style="background-color: #EA670B"></b>Intense 130–160</span>
+                        <span><b style="background-color: #D32F2F"></b>Maximal ≥ 160 bpm</span>
+                        <span><b class="hr-legend-empty"></b>Pas de mesure</span>
+                    </div>
                 </div>
-                <div id="gridStadiumBleacher" class="grid grid-bleachers"></div>
-                <p id="bleachers-empty" class="empty-state">Aucune tribune connectée pour l'instant.</p>
             </section>
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>

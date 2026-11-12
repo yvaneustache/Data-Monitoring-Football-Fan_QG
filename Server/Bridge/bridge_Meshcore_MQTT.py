@@ -52,7 +52,8 @@ def main():
 
     meshcoreClient = MeshcoreClientWrapper(onReceiveCallback=_onReceive)
 
-    mqttClient = MQTTClientWrapper("bridge_Meshtastic_MQTT", Config.MQTT_BROKER_HOST, Config.MQTT_BROKER_PORT, Config.MQTT_BROKER_KEEPALIVE, qos=Config.MQTT_BROKER_QOS)
+    # Identifiant propre à ce bridge : deux clients MQTT de même identifiant se déconnectent mutuellement
+    mqttClient = MQTTClientWrapper("bridge_Meshcore_MQTT", Config.MQTT_BROKER_HOST, Config.MQTT_BROKER_PORT, Config.MQTT_BROKER_KEEPALIVE, qos=Config.MQTT_BROKER_QOS)
 
     try:
         meshcoreClient.connect()

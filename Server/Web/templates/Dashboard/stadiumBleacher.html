@@ -11,26 +11,30 @@
         {% include "partials/topbar.html" %}
         <main class="page layout">
             <div class="main-col">
-                <div class="title-row">
-                    <div class="title-group">
-                        {{ ui.neighbourLink("/stadiumBleacher/", prevId, "Tribune précédente", "prev") }}
-                        <div>
-                            <p class="eyebrow">Tribune n°{{ id }}</p>
-                            <h1>Tribune {{ name }}</h1>
+                <div class="sticky-head">
+                    <div class="title-row">
+                        <div class="title-group">
+                            {{ ui.neighbourLink("/stadiumBleacher/", prevId, "Tribune précédente", "prev") }}
+                            <div>
+                                <p class="eyebrow">Tribune n°{{ id }}</p>
+                                <h1>Tribune {{ name }}</h1>
+                            </div>
+                            {{ ui.neighbourLink("/stadiumBleacher/", nextId, "Tribune suivante", "next") }}
                         </div>
-                        {{ ui.neighbourLink("/stadiumBleacher/", nextId, "Tribune suivante", "next") }}
+                        <div class="title-actions">
+                            <button id="reset-all" class="btn" type="button">
+                                {{ ui.resetIcon() }}
+                                Tout remettre à zéro
+                            </button>
+                            {{ ui.backButton() }}
+                        </div>
                     </div>
-                    <div class="title-actions">
-                        <button id="reset-all" class="btn" type="button">
-                            {{ ui.resetIcon() }}
-                            Tout remettre à zéro
-                        </button>
-                        {{ ui.backButton() }}
-                    </div>
+                    {{ ui.timebar() }}
                 </div>
-                {{ ui.timebar() }}
-                {{ ui.measurePanel("accelerometer", "Vibration", "m/s²") }}
-                {{ ui.measurePanel("acoustic", "Acoustique", "dB(A)") }}
+                {# Seules les mesures des capteurs installés dans la tribune (configurées dans /event/preparation) #}
+                {% if "acoustic" in metrics %}{{ ui.measurePanel("acoustic", "Acoustique", "dB(A)") }}{% endif %}
+                {% if "accelerometer" in metrics %}{{ ui.measurePanel("accelerometer", "Vibration", "m/s²") }}{% endif %}
+                {% if "temperature" in metrics %}{{ ui.measurePanel("temperature", "Température", "°C") }}{% endif %}
             </div>
             {{ ui.eventsSidebar() }}
         </main>

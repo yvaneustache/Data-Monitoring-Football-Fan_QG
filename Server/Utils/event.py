@@ -10,6 +10,7 @@
 
 import json
 import os
+import threading
 from datetime import datetime
 
 from Server.Config.setting import Config
@@ -20,6 +21,8 @@ from Server.Utils.logger import Logger
 # =============================================================================
 
 logger = Logger("Serveur/Event")
+
+_matchLock = threading.Lock() ##< @brief Empêche deux requêtes simultanées de créer chacune un nouveau match.
 
 # =============================================================================
 #  Configuration
@@ -140,28 +143,68 @@ def createNewEventConfiguration(config, matchInfomation):
 # @return Les informations d'avant match et si les dernières informatons sont valide.
 ##
 def loadMatchInformation(postgresqlClient):
-    matchId = postgresqlClient.fetch("SELECT id FROM match ORDER BY ts DESC LIMIT 1")
+    with _matchLock:
+        return _loadMatchInformation(postgresqlClient)
+
+
+
+##
+# @brief Crée un match vide (deux équipes et leurs joueurs, sans nom), qui devient le match en cours.
+#
+# @param postgresqlClient Client PostgreSQL.
+#
+# @return int Identifiant du match créé.
+##
+def _createMatch(postgresqlClient):
+    matchId = postgresqlClient.execute("INSERT INTO match (ts) VALUES (%s) RETURNING id", (datetime.now().strftime("%Y/%m/%d %H:%M:%S"),), returning=True)["id"]
+    domicileId = postgresqlClient.execute("INSERT INTO team (name) VALUES (NULL) RETURNING id", returning=True)["id"]
+    exterieurId = postgresqlClient.execute("INSERT INTO team (name) VALUES (NULL) RETURNING id", returning=True)["id"]
+    domicilePlayerId = []
+    for _ in range(20):
+        domicilePlayerId.append(postgresqlClient.execute("INSERT INTO player (name) VALUES (NULL) RETURNING id", returning=True)["id"])
+    exterieurPlayerId = []
+    for _ in range(20):
+        exterieurPlayerId.append(postgresqlClient.execute("INSERT INTO player (name) VALUES (NULL) RETURNING id", returning=True)["id"])
+    postgresqlClient.execute("UPDATE match SET domicile = %s, exterieur = %s WHERE id = %s", (domicileId, exterieurId, matchId))
+    for idf in domicilePlayerId:
+        postgresqlClient.execute("UPDATE player SET team = %s WHERE id = %s", (domicileId, idf))
+    for idf in exterieurPlayerId:
+        postgresqlClient.execute("UPDATE player SET team = %s WHERE id = %s", (exterieurId, idf))
+
+    logger.info(f"[Event] Création du match id={matchId}")
+
+    return matchId
+
+
+
+##
+# @brief Crée un nouveau match, qui devient le match en cours (bouton « Nouveau match » de la préparation).
+#
+# Le match précédent et ses évènements sont conservés dans la base.
+#
+# @param postgresqlClient Client PostgreSQL.
+#
+# @return int Identifiant du match créé.
+##
+def createNewMatch(postgresqlClient):
+    with _matchLock:
+        return _createMatch(postgresqlClient)
+
+
+
+##
+# @brief Corps de loadMatchInformation(), exécuté sous verrou.
+##
+def _loadMatchInformation(postgresqlClient):
+    # Dernier match : à date égale, le plus récent identifiant
+    matchId = postgresqlClient.fetch("SELECT id FROM match ORDER BY ts DESC, id DESC LIMIT 1")
     if matchId:
         matchId = matchId[0]["id"]
         event = postgresqlClient.fetch("SELECT code FROM event WHERE match = %s ORDER BY ts DESC LIMIT 1", (matchId,))
         lastInformation = True if not event or event[0]["code"] != 12 else False
     if not matchId or not lastInformation:
-        # Création d'un nouveaux match
-        matchId = postgresqlClient.execute("INSERT INTO match (ts) VALUES (%s) RETURNING id", (datetime.now().strftime("%Y/%m/%d %H:%M:%S"),), returning=True)["id"]
-        domicileId = postgresqlClient.execute("INSERT INTO team (name) VALUES (NULL) RETURNING id", returning=True)["id"]
-        exterieurId = postgresqlClient.execute("INSERT INTO team (name) VALUES (NULL) RETURNING id", returning=True)["id"]
-        domicilePlayerId = []
-        for _ in range(20):
-            domicilePlayerId.append(postgresqlClient.execute("INSERT INTO player (name) VALUES (NULL) RETURNING id", returning=True)["id"])
-        exterieurPlayerId = []
-        for _ in range(20):
-            exterieurPlayerId.append(postgresqlClient.execute("INSERT INTO player (name) VALUES (NULL) RETURNING id", returning=True)["id"])
-        postgresqlClient.execute("UPDATE match SET domicile = %s, exterieur = %s WHERE id = %s", (domicileId, exterieurId, matchId))
-        for idf in domicilePlayerId:
-            postgresqlClient.execute("UPDATE player SET team = %s WHERE id = %s", (domicileId, idf))
-        for idf in exterieurPlayerId:
-            postgresqlClient.execute("UPDATE player SET team = %s WHERE id = %s", (exterieurId, idf))
-        lastInformation = False;
+        matchId = _createMatch(postgresqlClient)
+        lastInformation = False
 
     matchInformation = {"domicile": {"player": []}, "exterieur": {"player": []}}
     matchInformation["id"] = matchId
@@ -202,13 +245,13 @@ def loadMatchInformation(postgresqlClient):
 #
 # @param postgresqlClient Client PostgreSQL.
 #
-# @return dict {"id": …, "ts": datetime, "domicile": {"id": …, "team": …}, "exterieur": {"id": …, "team": …}}.
+# @return dict {"id": …, "ts": datetime, "stadium": str|None, "domicile": {"id": …, "team": …}, "exterieur": {"id": …, "team": …}}.
 ##
 def getCurrentMatch(postgresqlClient):
-    match = postgresqlClient.fetch("SELECT id, ts FROM match ORDER BY ts DESC LIMIT 1")
+    match = postgresqlClient.fetch("SELECT id, ts, stadium FROM match ORDER BY ts DESC, id DESC LIMIT 1")
     if not match:
         loadMatchInformation(postgresqlClient)
-        match = postgresqlClient.fetch("SELECT id, ts FROM match ORDER BY ts DESC LIMIT 1")
+        match = postgresqlClient.fetch("SELECT id, ts, stadium FROM match ORDER BY ts DESC, id DESC LIMIT 1")
 
     matchId = match[0]["id"]
 
@@ -217,7 +260,7 @@ def getCurrentMatch(postgresqlClient):
         team = postgresqlClient.fetch(f"SELECT team.id, team.name FROM team, match WHERE match.id = %s AND match.{side} = team.id", (matchId,))
         teams[side] = {"id": team[0]["id"], "team": team[0]["name"]} if team else {"id": None, "team": None}
 
-    return {"id": matchId, "ts": match[0].get("ts"), "domicile": teams["domicile"], "exterieur": teams["exterieur"]}
+    return {"id": matchId, "ts": match[0].get("ts"), "stadium": match[0].get("stadium"), "domicile": teams["domicile"], "exterieur": teams["exterieur"]}
 
 
 
@@ -229,23 +272,98 @@ def getCurrentMatch(postgresqlClient):
 #
 # @return list Liste de {"id", "code", "name", "team", "t"} triée par date.
 ##
+FREE_EVENT_CODE = 99 ##< @brief Code d'un évènement libre : son nom est le texte saisi (colonne "detail").
+SYNC_EVENT_CODE = 98 ##< @brief Code d'un recalage vidéo (rejeu) : son texte est le temps de la vidéo à cet instant.
+TEXT_EVENT_CODES = (FREE_EVENT_CODE, SYNC_EVENT_CODE) ##< @brief Évènements dont le texte est saisi.
+
+
+
 def getMatchEventList(postgresqlClient, matchId):
     names = {}
     for category in loadConfigurationInformation():
         for event in category["event"]:
             names[event["code"]] = event["name"]
 
-    events = postgresqlClient.fetch("SELECT id, code, ts, team FROM event WHERE match = %s ORDER BY ts", (matchId,))
+    events = postgresqlClient.fetch("SELECT id, code, ts, team, detail FROM event WHERE match = %s ORDER BY ts", (matchId,))
 
-    return [{"id": e["id"], "code": e["code"], "name": names.get(e["code"], f"Évènement {e['code']}"), "team": e["team"], "t": int(e["ts"].timestamp() * 1000)} for e in events]
+    return [{"id": e["id"], "code": e["code"], "name": _eventName(names, e["code"], e.get("detail")), "team": e["team"], "t": int(e["ts"].timestamp() * 1000)} for e in events]
+
+
+
+##
+# @brief Nom affiché d'un évènement : texte saisi pour un évènement libre, sinon nom de la configuration.
+##
+def _eventName(names, code, detail):
+    if code in TEXT_EVENT_CODES:
+        return detail or ""
+
+    return names.get(code, f"Évènement {code}")
+
+
+
+PERIOD_STARTS = {1: 0, 3: 45, 5: 90, 7: 105}   ##< @brief Coups d'envoi des périodes et minute de départ.
+PERIOD_ENDS   = {1: 45, 3: 90, 5: 105, 7: 120} ##< @brief Minute de fin réglementaire de chaque période.
+STOP_CODE     = 34                              ##< @brief Code de l'évènement "Arrêt du jeu" (chrono arrêté).
+RESTART_CODE  = 35                              ##< @brief Code de l'évènement "Reprise du jeu" (chrono relancé).
+
+
+
+##
+# @brief État du chrono du match à un instant donné, d'après les évènements de phase de jeu.
+#
+# Même calcul que l'interface web : temps écoulé depuis le coup d'envoi de la période en cours,
+# sans les arrêts de jeu (entre "Arrêt du jeu" et "Reprise du jeu").
+#
+# @param events Évènements du match (cf. getMatchEventList()), triés par date.
+# @param t      Timestamp en millisecondes.
+#
+# @return dict {"state": code du coup d'envoi de la période en cours, "Mi-temps", "Pause" ou None,
+#               "base": minute de départ de la période, "elapsed": temps joué dans la période (ms),
+#               "stopped": chrono arrêté}.
+##
+def matchClock(events, t):
+    reference = None
+    base      = 0
+    state     = None
+    paused    = 0
+    stopStart = None
+
+    for event in events:
+        if event["t"] > t:
+            break
+
+        code = event["code"]
+        if code in PERIOD_STARTS:
+            reference = event["t"]
+            base      = PERIOD_STARTS[code]
+            state     = code
+            paused    = 0
+            stopStart = None
+        elif code == STOP_CODE and isinstance(state, int) and stopStart is None:
+            stopStart = event["t"]
+        elif code == RESTART_CODE and stopStart is not None:
+            paused   += event["t"] - stopStart
+            stopStart = None
+        elif code in (2, 6):
+            state     = "Mi-temps" if code == 2 else "Pause"
+            stopStart = None
+        elif code in (4, 8, 9, 10, 12):
+            state     = None
+            stopStart = None
+
+    elapsed = 0
+    if isinstance(state, int) and reference is not None:
+        elapsed = (stopStart if stopStart is not None else t) - reference - paused
+
+    return {"state": state, "base": base, "elapsed": elapsed, "stopped": stopStart is not None}
 
 
 
 ##
 # @brief Minute de jeu à un instant donné, d'après les évènements de phase de jeu.
 #
-# Même calcul que l'interface web : temps écoulé depuis le coup d'envoi (0'), depuis
-# la reprise à partir de 45', puis depuis les prolongations à partir de 90' et 105'.
+# Temps joué depuis le coup d'envoi (0'), depuis la reprise à partir de 45', puis depuis les
+# prolongations à partir de 90' et 105', sans les arrêts de jeu (la minute est figée pendant un arrêt).
 # Le temps additionnel s'écrit "45+2'". Entre deux périodes : "Mi-temps" ou "Pause".
 #
 # @param events Évènements du match (cf. getMatchEventList()), triés par date.
@@ -254,31 +372,15 @@ def getMatchEventList(postgresqlClient, matchId):
 # @return str Minute de jeu, chaîne vide avant le coup d'envoi ou après la fin du match.
 ##
 def matchMinute(events, t):
-    starts = {1: 0, 3: 45, 5: 90, 7: 105}
-    ends = {1: 45, 3: 90, 5: 105, 7: 120}
-    reference = None
-    base = 0
-    state = None
-
-    for event in events:
-        if event["t"] > t:
-            break
-
-        if event["code"] in starts:
-            reference = event["t"]
-            base = starts[event["code"]]
-            state = event["code"]
-        elif event["code"] in (2, 6):
-            state = "Mi-temps" if event["code"] == 2 else "Pause"
-        elif event["code"] in (4, 8, 9, 10, 12):
-            state = None
+    clock = matchClock(events, t)
+    state = clock["state"]
 
     if isinstance(state, str):
         return state
-    if state is None or reference is None:
+    if state is None:
         return ""
 
-    minute = base + int((t - reference) // 60000)
-    end = ends[state]
+    minute = clock["base"] + int(clock["elapsed"] // 60000)
+    end    = PERIOD_ENDS[state]
 
     return f"{end}+{minute - end}'" if minute >= end else f"{minute}'"

@@ -11,7 +11,8 @@
                 </a>
                 <nav class="nav" aria-label="Navigation principale">
                     <a class="nav-link {{ 'active' if active == 'dashboard' }}" href="/">Dashboard</a>
-                    <a class="nav-link {{ 'active' if active == 'comparison' }}" href="/comparison/Supporter/heart_rate">Comparaison</a>
+                    <a class="nav-link {{ 'active' if active == 'comparison' }}" href="/comparison/StadiumBleacher/acoustic">Comparaison</a>
+                    <a class="nav-link {{ 'active' if active == 'replay' }}" href="/replay">Rejeu</a>
                 </nav>
                 <div class="partners">
                     <img class="partner-club" src="{{ url_for('static', filename='images/logos/fc-lorient-blanc.svg') }}" alt="FC Lorient">
@@ -24,3 +25,43 @@
                 </div>
             </div>
         </div>
+        <script>
+            // Hauteur de la barre du haut (variable selon le retour à la ligne), pour placer les éléments fixés en dessous
+            (function () {
+                const topbar = document.querySelector(".topbar");
+                const update = () => document.documentElement.style.setProperty("--topbar-height", topbar.offsetHeight + "px");
+                new ResizeObserver(update).observe(topbar);
+                update();
+
+                // Titre fixé des pages de détail : compacté quand la page défile. Deux seuils distincts (réduction après 80 px, retour sous 8 px) :
+                // la réduction raccourcit la page, un seuil unique ferait alterner les deux tailles (élément qui vibre).
+                window.addEventListener("DOMContentLoaded", () => {
+                    const heads = document.querySelectorAll(".sticky-head");
+                    if (!heads.length)
+                        return;
+                    // La hauteur perdue par la réduction est compensée par une marge basse : la place occupée dans la page
+                    // ne change pas, donc pas de recalage du défilement (qui ferait osciller l'élément entre ses deux tailles)
+                    const updateStuck = () => {
+                        for (const head of heads)
+                        {
+                            const stuck = window.scrollY > 80 ? true : (window.scrollY < 8 ? false : head.classList.contains("is-stuck"));
+                            if (!stuck)
+                            {
+                                head.classList.remove("is-stuck");
+                                head.style.marginBottom = "";
+                                head.dataset.fullHeight = head.offsetHeight;
+                                continue;
+                            }
+                            if (!head.classList.contains("is-stuck"))
+                            {
+                                const full = Number(head.dataset.fullHeight) || head.offsetHeight;
+                                head.classList.add("is-stuck");
+                                head.style.marginBottom = `${Math.max(0, full - head.offsetHeight)}px`;
+                            }
+                        }
+                    };
+                    window.addEventListener("scroll", updateStuck, { passive: true });
+                    updateStuck();
+                });
+            })();
+        </script>

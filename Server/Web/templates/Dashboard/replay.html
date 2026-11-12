@@ -1,0 +1,184 @@
+{% import "partials/components.html" as ui %}
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Rejeu du match</title>
+        {% include "partials/head.html" %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/detail.css') }}">
+    </head>
+    <body>
+        {% include "partials/topbar.html" %}
+        <main class="page layout">
+            {# Lecteur vidéo, colonne fixe à gauche des courbes (en noir tant qu'il est fermé, pour réserver sa place) : 10 secondes avant et 10 secondes après l'heure d'un évènement (clic sur l'évènement) #}
+            <section class="match-video is-blanked" data-match-video aria-label="Vidéo du match">
+                <div class="match-video-head">
+                    <div class="match-video-titles">
+                        <p class="match-video-caption" data-video-caption>Cliquez sur un évènement pour voir la vidéo</p>
+                        <p class="match-video-clock" data-video-clock aria-live="off"></p>
+                    </div>
+                    <div class="match-video-actions">
+                        <button class="match-video-tool" type="button" data-video-cursor aria-pressed="true" title="Masquer le curseur vidéo sur les courbes" aria-label="Curseur vidéo sur les courbes">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="2" x2="12" y2="22"></line><polyline points="8 6 12 2 16 6"></polyline><polyline points="8 18 12 22 16 18"></polyline></svg>
+                        </button>
+                        <button class="match-video-tool" type="button" data-video-size aria-pressed="false" title="Agrandir la vidéo" aria-label="Agrandir la vidéo">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                        </button>
+                        <button class="match-video-tool" type="button" data-video-popout title="Afficher la vidéo dans une autre fenêtre" aria-label="Afficher la vidéo dans une autre fenêtre">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </button>
+                        <button class="match-video-close" type="button" data-video-close aria-label="Fermer la vidéo">×</button>
+                    </div>
+                </div>
+                <video controls preload="metadata" playsinline></video>
+                <div class="match-video-remote">
+                    <p>La vidéo est affichée dans une autre fenêtre, pilotée par cette page.</p>
+                    <button class="btn" type="button" data-video-focus>Afficher la fenêtre</button>
+                </div>
+                <div class="match-video-settings">
+                    <label>Vidéo
+                        <select data-video-file>
+                            {% for video in videos %}<option>{{ video }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label title="Instant du coup d'envoi dans la vidéo (m:ss ou h:mm:ss) : synchronise la vidéo avec les courbes">Coup d'envoi à
+                        <input type="text" inputmode="numeric" placeholder="7:39" data-video-kickoff>
+                    </label>
+                </div>
+                <p class="match-video-status" data-video-status role="status"></p>
+            </section>
+            <div class="main-col">
+                <div class="sticky-head">
+                    <div class="title-row">
+                        <div>
+                            <p class="eyebrow">Rejeu · match du {{ replay.date }}</p>
+                            <h1 class="replay-title">
+                                {% if replay.domicile and replay.domicile.team and replay.exterieur and replay.exterieur.team %}{{ replay.domicile.team }} – {{ replay.exterieur.team }}{% elif replay.match %}Match n°{{ replay.match }}{% else %}{{ replay.filename }}{% endif %}
+                            </h1>
+                        </div>
+                        <div class="title-actions">
+                            <button class="btn" type="button" data-video-open title="Vidéo du match : cliquez sur un évènement pour en voir 10 s avant et 10 s après">Vidéo</button>
+                            <a class="btn" href="{{ url_for('replayListPage') }}">Charger un autre match</a>
+                            {{ ui.backButton() }}
+                        </div>
+                    </div>
+                    {{ ui.timebar() }}
+                    <section class="timebar smoothing" aria-label="Lissage des courbes">
+                        <div class="smoothing-row">
+                            <label class="smoothing-label" for="smoothing-method" title="Réglage appliqué à toutes les courbes ; chaque courbe a ensuite son propre réglage">Lissage (toutes les courbes)</label>
+                            <select id="smoothing-method" class="smoothing-method" data-smoothing-method title="Méthode de nettoyage des courbes (appliquée après le seuillage)">
+                                <option value="mean">Moyenne glissante</option>
+                                <option value="max">Maximum glissant</option>
+                                <option value="hampel">Hampel (valeurs aberrantes)</option>
+                                <option value="envelope">Enveloppe (attaque / retombée)</option>
+                                <option value="leq">Leq (acoustique)</option>
+                                <option value="p90">90e centile glissant</option>
+                            </select>
+                            <input type="range" min="0" max="9" step="1" value="0" data-smoothing aria-label="Largeur de la fenêtre" aria-describedby="smoothing-value">
+                            <span id="smoothing-value" class="smoothing-value" data-smoothing-value>Désactivé</span>
+                        </div>
+                    </section>
+                </div>
+                {% set titles = {"accelerometer": "Vibration", "acoustic": "Acoustique", "temperature": "Température", "heart_rate": "Fréquence cardiaque"} %}
+                {# Une courbe par type de données, même sans mesure : les évènements du match y sont affichés #}
+                {% for dataType in ["accelerometer", "acoustic", "temperature", "heart_rate"] %}
+                <section class="panel" aria-labelledby="{{ dataType }}-title">
+                    <div class="panel-header">
+                        <h2 id="{{ dataType }}-title">{{ titles[dataType] }}</h2>
+                        {# Échelle de la courbe : bornes choisies, ou automatique d'après les données #}
+                        <form class="scale-form" data-scale="{{ dataType }}" aria-label="Échelle {{ titles[dataType] | lower }}">
+                            <label>Min <input type="number" step="any" data-scale-min></label>
+                            <label>Max <input type="number" step="any" data-scale-max></label>
+                            <button class="btn" type="button" data-scale-auto title="Échelle calculée d'après les données">Auto</button>
+                            <button class="btn" type="button" data-scale-clip aria-pressed="false" title="Ramène les valeurs hors de [Min, Max] à Min ou à Max (avant la moyenne glissante)">Seuiller</button>
+                            <button class="btn" type="button" data-scale-apply disabled title="Enregistre les valeurs seuillées dans le match : le ZIP téléchargé les contient">Appliquer</button>
+                        </form>
+                        <p class="scale-status" data-scale-status="{{ dataType }}" role="status"></p>
+                        {% if dataType == "heart_rate" %}
+                        {# Fréquence cardiaque : valeurs, ou variations par rapport à la référence de chaque supporter #}
+                        <div class="hr-mode" role="group" aria-label="Affichage de la fréquence cardiaque">
+                            <button class="btn is-active" type="button" data-hr-mode="values" aria-pressed="true">Valeurs (bpm)</button>
+                            <button class="btn" type="button" data-hr-mode="delta" aria-pressed="false" title="Écart de chaque supporter à sa référence (médiane de son enregistrement)">Variations (Δ bpm)</button>
+                            <span class="hr-reference" data-hr-reference></span>
+                        </div>
+                        {% endif %}
+                        {# Lissage propre à la courbe #}
+                        <div class="panel-smoothing" data-panel-smoothing="{{ dataType }}">
+                            <span>Lissage</span>
+                            <select data-panel-method aria-label="Méthode de lissage de la courbe {{ titles[dataType] | lower }}">
+                                <option value="mean">Moyenne glissante</option>
+                                <option value="max">Maximum glissant</option>
+                                <option value="hampel">Hampel (valeurs aberrantes)</option>
+                                <option value="envelope">Enveloppe (attaque / retombée)</option>
+                                {% if dataType == "acoustic" %}<option value="leq">Leq (acoustique)</option>{% endif %}
+                                <option value="p90">90e centile glissant</option>
+                            </select>
+                            <select data-panel-width aria-label="Largeur du lissage de la courbe {{ titles[dataType] | lower }}">
+                                <option value="0">Désactivé</option>
+                                {% for seconds, label in [(5, "5 s"), (10, "10 s"), (15, "15 s"), (30, "30 s"), (60, "1 min"), (120, "2 min"), (300, "5 min"), (600, "10 min"), (900, "15 min")] %}<option value="{{ seconds }}">{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% if replay.data[dataType] %}
+                    <div class="legend" role="group" aria-label="Courbes affichées" data-legend="{{ dataType }}"></div>
+                    {% else %}
+                    <p class="empty-state">Aucune donnée dans l'archive : seuls les évènements du match sont affichés.</p>
+                    {% endif %}
+                    <div class="chart-box">
+                        <canvas data-chart="{{ dataType }}" role="img" aria-label="Courbes {{ titles[dataType] | lower }}"></canvas>
+                    </div>
+                    {% if dataType == "heart_rate" and replay.data[dataType] %}
+                    {# Bande de couleurs : zone d'effort du maximum de chaque minute, alignée sur la courbe #}
+                    <div class="hr-band">
+                        <canvas data-hr-band role="img" aria-label="Zones d'effort de la fréquence cardiaque par minute"></canvas>
+                        <div class="hr-legend">
+                            <span><b style="background-color: #5A8F6A"></b>Repos &lt; 100</span>
+                            <span><b style="background-color: #C9A227"></b>Modéré 100–130</span>
+                            <span><b style="background-color: #EA670B"></b>Intense 130–160</span>
+                            <span><b style="background-color: #D32F2F"></b>Maximal ≥ 160 bpm</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+                {% if replay.data["heart_rate"] %}
+                {# Évolution de la fréquence cardiaque : vitesse de variation (bpm/min), accélération ou ralentissement #}
+                <section class="panel" aria-labelledby="hr-trend-title">
+                    <div class="panel-header">
+                        <h2 id="hr-trend-title">Variation de la fréquence cardiaque</h2>
+                        <label class="panel-smoothing">
+                            <span>Calculée sur</span>
+                            <select data-trend-window aria-label="Fenêtre de calcul de la variation">
+                                <option value="30">30 s</option>
+                                <option value="60" selected>1 min</option>
+                                <option value="120">2 min</option>
+                                <option value="300">5 min</option>
+                            </select>
+                        </label>
+                        <p class="panel-help">Vitesse de variation en bpm par minute : au-dessus de 0 le cœur accélère, en dessous il ralentit.</p>
+                    </div>
+                    <div class="legend" role="group" aria-label="Courbes affichées" data-legend="hr_trend"></div>
+                    <div class="chart-box">
+                        <canvas data-chart="hr_trend" role="img" aria-label="Variation de la fréquence cardiaque"></canvas>
+                    </div>
+                    <div class="trend-scale" aria-label="Échelle des couleurs">
+                        <span>Ralentit</span>
+                        <span class="trend-scale-bar"></span>
+                        <span>Accélère</span>
+                        <span class="trend-scale-limit" data-trend-scale></span>
+                    </div>
+                </section>
+                {% endif %}
+            </div>
+            {{ ui.eventsSidebar(url_for('replayZip', replay_id=replay.id)) }}
+        </main>
+        <script src="{{ url_for('static', filename='lib/chart.umd.min.js') }}"></script>
+        <script>
+            // Définition des variables dynamiques
+            window.DEBUG = {{ debug }};
+            window.replayId = {{ replay.id | tojson }};
+            window.videoSettings = {{ videoSettings | tojson }};
+        </script>
+        <script type="module" src="{{ url_for('static', filename='js/Dashboard/replay.js') }}"></script>
+    </body>
+</html>

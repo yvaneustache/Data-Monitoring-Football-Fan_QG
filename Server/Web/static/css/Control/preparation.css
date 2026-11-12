@@ -1,205 +1,240 @@
 /* =========================================================================
-    Body
+    Page de préparation du match
    ========================================================================= */
 
-body
+.prep
 {
-    background-color: var(--body-background);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 1100px;
 }
-
-/* =========================================================================
-    Header
-   ========================================================================= */
-
-header
+.prep-title
 {
-	background-color: var(--header-background);
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     justify-content: space-between;
-    align-items: center;
-    justify-items: center;
-    margin: 3vh 10vw 5vh 10vw;
-    padding: 2vh 2vw;
-    border-radius: 15px;
-    border: 5px solid var(--header-border);
+    gap: 16px;
 }
-
-
-
-h1
+.prep-title h1
 {
-    font-size: 50px;
-    grid-column: 1 / 3;
+    font-size: 48px;
+    line-height: 1;
 }
 
-
-
-.button
+/* Cartes */
+.prep-card
+{
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+}
+.prep-card-head
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+.prep-card-head h2
 {
     font-size: 30px;
-    font-weight: bold;
-    border-radius: 15px;
-    padding: 1vh 1vw;
-    background-color: var(--back-button-background);
+    text-transform: uppercase;
 }
-.button:active
+.prep-hint, .prep-help
 {
-	transform: translateY(2px);
+    font-size: 14px;
+    color: var(--text-muted);
+}
+.sensors-status.is-error
+{
+    color: #B3261E;
 }
 
-/* =========================================================================
-    Main
-   ========================================================================= */
+/* Champs */
+.prep-input
+{
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border-radius: var(--radius-small);
+    border: 1px solid var(--input-border);
+    background-color: var(--input-background);
+    font-size: 16px;
+}
+.prep-input:focus
+{
+    outline: 2px solid var(--brand-orange);
+    outline-offset: 1px;
+}
 
-main
+/* Équipes face à face, avec l'aperçu du logo */
+.prep-teams
 {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1fr;
-    justify-content: center;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    width: 90%;
-    margin-left: 5%;
+    gap: 24px;
+}
+.prep-team
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.prep-side
+{
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--brand-orange-dark);
+}
+.prep-logo
+{
+    width: 84px;
+    height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.prep-logo img
+{
+    max-width: 100%;
+    max-height: 100%;
+}
+.prep-logo.is-initials
+{
+    border-radius: 50%;
+    border: 3px solid var(--card-border);
+    background-color: var(--card-soft-background);
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+}
+.prep-team-name
+{
+    max-width: 320px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.prep-team-name::placeholder
+{
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 400;
+    text-transform: none;
+}
+.prep-vs
+{
+    font-family: var(--font-display);
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--brand-orange);
 }
 
-
-
-h2
+.prep-fields
 {
-	font-size: 50px;
-	text-align: center;
-	margin-bottom: 1vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--card-border);
+}
+.prep-field
+{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.prep-field > span
+{
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
-
-
-input[type="text"], input[type="number"], select
+/* Tableau des capteurs des tribunes */
+.sensors-table
 {
-	background-color: var(--input-background);
-	border-color: var(--input-border);
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+}
+.sensors-table th
+{
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+}
+.sensors-table td
+{
+    padding: 10px 14px;
+    border-top: 1px solid var(--card-border);
+    text-align: center;
+}
+.sensors-table th:first-child, .sensors-table td:first-child
+{
+    text-align: left;
+}
+.sensors-table tbody tr:hover
+{
+    background-color: var(--card-soft-background);
+}
+.sensors-table small
+{
+    margin-left: 4px;
+    color: var(--text-muted);
+}
+.sensors-table input[type="checkbox"]
+{
+    width: 22px;
+    height: 22px;
+    accent-color: var(--brand-orange);
+    cursor: pointer;
+}
+.sensors-swatch
+{
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 10px;
+    border-radius: 3px;
 }
 
-
-
-/* ---------- Domicile ---------- */
-#domicile
+@media (max-width: 720px)
 {
-	display: flex;
+    .prep-teams, .prep-fields
+    {
+        grid-template-columns: 1fr;
+    }
+    .prep-vs
+    {
+        text-align: center;
+    }
 }
 
-
-
-/* ---------- Exterieur ---------- */
-#exterieur
+.prep-actions
 {
-	display: flex;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
 }
-
-
-
-/* ---------- Match ---------- */
-.match-config
+.prep-actions .btn-primary, .prep-actions .btn-primary *
 {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-}
-.match-config label
-{
-	font-size: 40px;
-	text-align: center;
-}
-.match-config input, .match-config select
-{
-	font-size: 30px;
-	text-align: center;
-	padding: 0.5vh 1vw;
-	margin: 1vh 0 2vh 0;
-	border: 1px solid black;
-	border-radius: 5px;
-}
-
-
-
-/* ---------- Équipe ---------- */
-.team-config
-{
-	background-color: var(--card-background);
-	display: flex;
-	flex-direction: column;
-    border: 5px solid var(--card-border);
-    border-radius: 15px;
-    padding: 3vh 1vw;
-    overflow-y: auto;
-	height: 70vh;
-}
-.team, .coach
-{
-	width: 90%;
-	margin-left: 5%;
-	padding-bottom: 2vh;
-	margin-bottom: 2vh;
-	border-bottom: 2px solid var(--card-border);
-}
-.team input, .coach input
-{
-	margin-left: 10%;
-}
-.player
-{
-	display: flex;
-	flex-direction: column;
-	width: 90%;
-	margin-left: 5%;
-}
-.player div
-{
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	gap: 1vw;
-	margin: 0.5vh 0;
-}
-.player input
-{
-	font-size: 20px;
-	text-align: left;
-	padding: 0.5vh 0.5vw;
-	margin-bottom: 1vh;
-	border: 1px solid black;
-	border-radius: 5px;
-}
-.team input, .coach input
-{
-	font-size: 30px;
-	text-align: center;
-	width: 80%;
-	padding: 0.5vh 1vw;
-	border: 1px solid black;
-	border-radius: 5px;
-}
-.player input[type="text"]
-{
-	flex: 1;
-}
-.player input[type="number"]
-{
-	width: 80%;
-	text-align: center;
-	padding: 0.5vh 0;
-}
-
-
-
-/* ---------- Flèche d'incrémentation/décrémentation ---------- */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button
-{
-    -webkit-appearance: none;
-    margin: 0;
-}
-input[type="number"]
-{
-    -moz-appearance: textfield;
+    color: var(--brand-black);
 }

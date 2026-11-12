@@ -2,41 +2,69 @@
     {
         "id": 1,
         "name": "Nord",
-        "color": "#E57373"
+        "color": "#E57373",
+        "metrics": []
     },
     {
         "id": 2,
         "name": "Sud",
-        "color": "#64B5F6"
+        "color": "#64B5F6",
+        "metrics": [
+            "temperature"
+        ]
     },
     {
         "id": 3,
         "name": "Est",
-        "color": "#81C784"
+        "color": "#81C784",
+        "metrics": []
     },
     {
         "id": 4,
         "name": "Ouest",
-        "color": "#FFF176"
+        "color": "#FFF176",
+        "metrics": []
     },
     {
         "id": 5,
         "name": "Nord-Est",
-        "color": "#FFB74D"
+        "color": "#FFB74D",
+        "metrics": [
+            "acoustic",
+            "accelerometer",
+            "temperature"
+        ]
     },
     {
         "id": 6,
         "name": "Nord-Ouest",
-        "color": "#F48FB1"
+        "color": "#F48FB1",
+        "metrics": []
     },
     {
         "id": 7,
         "name": "Sud-Est",
-        "color": "#BA68C8"
+        "color": "#BA68C8",
+        "metrics": [
+            "acoustic",
+            "accelerometer"
+        ]
     },
     {
         "id": 8,
         "name": "Sud-Ouest",
-        "color": "#A1887F"
+        "color": "#A1887F",
+        "metrics": [
+            "acoustic",
+            "accelerometer"
+        ]
+    },
+    {
+        "id": 9,
+        "name": "Exterieur",
+        "color": "#4DD0E1",
+        "metrics": [
+            "temperature"
+        ]
     }
 ]

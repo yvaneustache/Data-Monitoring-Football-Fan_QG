@@ -54,6 +54,10 @@ void UARTManager::begin()
 #endif
 
     // Initialisation du port série UART externe avec le format 8N1 (8 bits de données, pas de parité, 1 bit de stop)
+    // Tampon d'émission logiciel : sans lui, seule la FIFO matérielle de 128 octets est disponible,
+    // trop petite pour une trame JSON complète (doit être fixé avant begin())
+    this->externalSerial.setTxBufferSize(UART_TX_BUFFER_SIZE);
+
     this->externalSerial.begin(this->baudRate, SERIAL_8N1, this->rxPin, this->txPin);
 
     // Attente bloquante jusqu'à l'ouverture effective du port série

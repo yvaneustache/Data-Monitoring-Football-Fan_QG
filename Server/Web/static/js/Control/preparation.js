@@ -6,6 +6,8 @@
  * Ajoute un écouteur d'évènements sur le select pour la création d'une nouvelle configuration.
  */
 
+import { teamLogo, teamInitials } from "../Utils/teams.js";
+
 let timeout;
 const socket = io();
 
@@ -35,6 +37,24 @@ document.addEventListener("DOMContentLoaded", () =>
 
         matchInput.value = `${domicile} - ${exterieur}`;
 
+        // Aperçu du logo de chaque équipe (initiales si le logo n'est pas connu)
+        for (const input of [domicileTeam, exterieurTeam])
+        {
+            const logoRoot = input.closest("form").querySelector("[data-team-logo]");
+            const logo     = teamLogo(input.value);
+            logoRoot.replaceChildren();
+            logoRoot.classList.toggle("is-initials", !logo);
+            if (logo)
+            {
+                const image = document.createElement("img");
+                image.src = logo;
+                image.alt = `Logo ${input.value}`;
+                logoRoot.appendChild(image);
+            }
+            else
+                logoRoot.textContent = teamInitials(input.value);
+        }
+
         if (window.DEBUG)
         	console.log(`[Preparation] Mise à jour du match: ${matchInput.value}`);
 
@@ -54,7 +74,8 @@ document.addEventListener("DOMContentLoaded", () =>
 // Envoi des données d'avant match
 document.addEventListener("DOMContentLoaded", () =>
 {
-    const inputs = document.querySelectorAll("input, select");
+    // Champs du match et des équipes (le tableau des capteurs a son propre enregistrement)
+    const inputs = document.querySelectorAll("form input, form select");
 
     inputs.forEach(input =>
     {
@@ -76,22 +97,14 @@ function getMatchInformation()
 
     function getTeamData(form)
     {
+        // L'entraîneur et les joueurs ne sont plus saisis (remplacés par les capteurs des tribunes)
         const data =
         {
             id: form.querySelector("input[name='team']").getAttribute("teamId"),
             team: form.querySelector("input[name='team']").value,
-            coach: form.querySelector("input[name='coach']").value,
+            coach: null,
             player: []
         };
-
-        for (let i = 0; i <= 19; i++)
-        {
-            const name = form.querySelector(`input[name='player${i}']`).value;
-            const number = form.querySelector(`input[name='numero${i}']`).value;
-            const id = form.querySelector(`input[name='player${i}']`).getAttribute("playerId");
-
-            data.player.push({name: name, number: number, id: id});
-        }
 
         return data;
     }
@@ -129,3 +142,59 @@ function autoSend()
 
     return ;
 }
+
+
+
+
+// ============================================================================
+//  Capteurs des tribunes
+// ============================================================================
+
+const sensorsTable  = document.querySelector("[data-sensors-table]");
+const sensorsStatus = document.querySelector("[data-sensors-status]");
+
+/**
+ * @brief Envoie les mesures cochées de chaque tribune ({ "<id>": ["acoustic", …] }) pour enregistrement.
+ */
+function sendSensors()
+{
+    const metrics = {};
+    for (const row of sensorsTable.querySelectorAll("[data-bleacher-id]"))
+        metrics[row.dataset.bleacherId] = [...row.querySelectorAll("input[data-metric]:checked")].map((input) => input.dataset.metric);
+
+    sensorsStatus.textContent = "Enregistrement…";
+    socket.emit("stadiumBleacherMetrics", metrics);
+
+    if (window.DEBUG)
+        console.log("[Preparation] Capteurs des tribunes envoyés :", metrics);
+}
+
+if (sensorsTable)
+    sensorsTable.addEventListener("change", sendSensors);
+
+socket.on("stadiumBleacherMetricsResponse", (response) =>
+{
+    sensorsStatus.textContent = response.ok ? "Enregistré" : `Enregistrement impossible : ${response.error}`;
+    sensorsStatus.classList.toggle("is-error", !response.ok);
+});
+
+
+
+
+// ============================================================================
+//  Nouveau match
+// ============================================================================
+
+/**
+ * @brief Crée un nouveau match vide (après confirmation) et recharge la page pour le préparer.
+ */
+document.querySelector("[data-new-match]").addEventListener("click", () =>
+{
+    if (window.confirm("Créer un nouveau match ?\nIl devient le match en cours ; le match actuel et ses évènements sont conservés."))
+        socket.emit("newMatch");
+});
+
+socket.on("newMatchResponse", () =>
+{
+    window.location.reload();
+});

@@ -20,7 +20,8 @@
 Logger::Logger(const char * name, bool fileEnabled):
 name(name),
 fileEnabled(fileEnabled),
-filePath(std::string("/Logs/") + name + ".log")
+filePath(std::string("/Logs/") + name + ".log"),
+fileStopped(false)
 {
     // Création du dossier de logs via POSIX
     struct stat st;
@@ -121,27 +122,16 @@ void Logger::writeFile(const char * entry)
     // Taille de la nouvelle entrée qu'on va écrire
     const size_t entrySize = strlen(entry);
 
-    // Vérification que l'entrée seule ne dépasse pas la limite
-    if (entrySize > LOGGER_MAX_FILE_SIZE)
-    {
-#if DEBUG == 1
-        Serial.printf("[Logger] ERREUR : entrée trop grande pour '%s' (%u > %u)\n",
-            this->filePath.c_str(), (unsigned)entrySize, (unsigned)LOGGER_MAX_FILE_SIZE);
-        Serial.flush();
-#endif
-
-        return ;
-    }
-
     // Construction du chemin POSIX complet (préfixe /littlefs obligatoire)
     std::string posixPath = std::string("/littlefs") + this->filePath;
 
-    // Vérification de la taille courante via POSIX
+    // Fichier plein : l'écriture s'arrête (elle reprend si le fichier est supprimé ou vidé)
     struct stat st;
-    if (stat(posixPath.c_str(), &st) == 0)
+    const size_t fileSize = stat(posixPath.c_str(), &st) == 0 ? (size_t)st.st_size : 0;
+    if (fileSize + entrySize > LOGGER_MAX_FILE_SIZE)
     {
-        if ((size_t)st.st_size + entrySize > LOGGER_MAX_FILE_SIZE)
-            this->trimFile(entrySize);
+        this->setFileStopped(true, "fichier plein");
+        return ;
     }
 
     // Écriture via fopen POSIX crée le fichier s'il n'existe pas
@@ -149,118 +139,39 @@ void Logger::writeFile(const char * entry)
 
     if (!fp)
     {
-#if DEBUG == 1
-        Serial.printf("[Logger] ERREUR : fopen failed pour '%s' (errno=%d)\n",
-            posixPath.c_str(), errno);
-        Serial.flush();
-#endif
-
+        this->setFileStopped(true, errno == ENOSPC ? "plus de place sur LittleFS" : "ouverture impossible");
         return ;
     }
 
-    fprintf(fp, "%s", entry);
-    fflush(fp);
+    // Échec d'écriture (plus de place sur LittleFS) : l'écriture s'arrête
+    const bool written = fprintf(fp, "%s", entry) >= 0 && fflush(fp) == 0;
+    const int  error   = errno;
     fclose(fp);
+
+    if (!written)
+    {
+        this->setFileStopped(true, error == ENOSPC ? "plus de place sur LittleFS" : "écriture impossible");
+        return ;
+    }
+
+    this->setFileStopped(false, nullptr);
 
     return ;
 }
 
 
 
-void Logger::trimFile(size_t entrySize)
+void Logger::setFileStopped(bool stopped, const char * reason)
 {
-    // Construction du chemin POSIX complet
-    std::string posixPath = std::string("/littlefs") + this->filePath;
-
-    // Lecture intégrale du fichier via POSIX
-    FILE * fp = fopen(posixPath.c_str(), "r");
-
-    if (!fp)
-    {
-#if DEBUG == 1
-        Serial.printf("[Logger] ERREUR : impossible d'ouvrir '%s' pour trim (errno=%d)\n",
-            posixPath.c_str(), errno);
-        Serial.flush();
-#endif
-
+    if (stopped == this->fileStopped)
         return ;
-    }
 
-    fseek(fp, 0, SEEK_END);
-    const size_t fileSize = (size_t)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    this->fileStopped = stopped;
 
-    // Allocation du buffer en PSRAM pour ne pas consommer le heap interne
-    char * content = (char *)ps_malloc(fileSize + 1);
-
-    if (!content)
-    {
-#if DEBUG == 1
-        Serial.printf("[Logger] ERREUR : ps_malloc(%u) échoué pour trim de '%s'\n",
-            (unsigned)(fileSize + 1), posixPath.c_str());
-        Serial.flush();
-#endif
-
-        fclose(fp);
-        
-        return ;
-    }
-
-    // Lecture intégrale du fichier dans le buffer PSRAM
-    const size_t bytesRead = fread(content, 1, fileSize, fp);
-    content[bytesRead] = '\0';
-    fclose(fp);
-
-    // Suppression des premières lignes jusqu'à libérer assez de place
-    size_t offset = 0;
-
-    while (offset < bytesRead)
-    {
-        // Taille restante après suppression des lignes précédentes
-        const size_t remaining = bytesRead - offset;
-
-        if (remaining + entrySize <= LOGGER_MAX_FILE_SIZE)
-            break;
-
-        // Avancer jusqu'à la fin de la ligne courante
-        const char * newline = (const char *)memchr(content + offset, '\n', bytesRead - offset);
-
-        if (!newline)
-        {
-            // Plus de '\n' trouvé : tout le contenu restant est une seule ligne, on vide
-            offset = bytesRead;
-            break;
-        }
-
-        offset = (newline - content) + 1;
-    }
-
-    // Réécriture du fichier avec le contenu trimé via POSIX
-    FILE * fpw = fopen(posixPath.c_str(), "w");
-
-    if (!fpw)
-    {
-#if DEBUG == 1
-        Serial.printf("[Logger] ERREUR : impossible de réécrire '%s' après trim (errno=%d)\n",
-            posixPath.c_str(), errno);
-        Serial.flush();
-#endif
-
-        free(content);
-        
-        return ;
-    }
-
-    if (offset < bytesRead)
-        fwrite(content + offset, 1, bytesRead - offset, fpw);
-
-    free(content);
-    fflush(fpw);
-    fclose(fpw);
-
-#if DEBUG == 1
-    Serial.printf("[Logger] TrimFile '%s' : %u octets supprimés en tête\n", this->filePath.c_str(), (unsigned)offset);
-#endif
+    if (stopped)
+        Serial.printf("[Logger] Écriture de '%s' arrêtée : %s (max %u octets)\n", this->filePath.c_str(), reason, (unsigned)LOGGER_MAX_FILE_SIZE);
+    else
+        Serial.printf("[Logger] Écriture de '%s' reprise\n", this->filePath.c_str());
 
     return ;
 }

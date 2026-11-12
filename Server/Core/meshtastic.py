@@ -49,13 +49,15 @@ class MeshtasticClientWrapper:
     # @param host              Adresse du noeud Meshtastic.
     # @param topic             Topic pubsub auquel s'abonner.
     # @param onReceiveCallback Callback utilisateur appelé à chaque paquet reçu (default : None).
-    # @param autoReconnect     Reconnexion automatique (default : False).
+    # @param autoReconnect     Reconnexion automatique : attente du branchement du noeud et reconnexion après une déconnexion (default : False).
+    # @param retryDelay        Délai entre deux tentatives de connexion en secondes, si autoReconnect (default : 5).
     ##
-    def __init__(self, host, topic, onReceiveCallback=None, autoReconnect=False):
+    def __init__(self, host, topic, onReceiveCallback=None, autoReconnect=False, retryDelay=5):
         self.host          = host              ##< @brief Adresse du noeud Meshtastic.
         self.topic         = topic             ##< @brief Topic pubsub d'abonnement.
         self.userOnReceive = onReceiveCallback ##< @brief Callback utilisateur appelé à la réception d'un paquet.
         self.autoReconnect = autoReconnect     ##< @brief Active la reconnexion automatique.
+        self.retryDelay    = retryDelay        ##< @brief Délai entre deux tentatives de connexion en secondes.
 
         self.client = None                         ##< @brief Interface série Meshtastic, initialisée dans connect().
         self.port   = None                         ##< @brief Port série détecté, renseigné dans _findPort().
@@ -92,12 +94,14 @@ class MeshtasticClientWrapper:
             logger.info(f"[Meshtastic] Abonnement au topic pubsub '{self.topic}'")
 
             pub.subscribe(self._onReceive, self.topic)
+            pub.subscribe(self._onConnectionLost, "meshtastic.connection.lost")
 
             self.state = ConnectionState.CONNECTED
 
         except Exception as e:
             self.state = ConnectionState.ERROR
-            logger.error(f"Échec de connexion à 'Meshtastic' [{self.host}:{self.port}]")
+            logger.error(f"Échec de connexion à 'Meshtastic' [{self.host}:{self.port}] : {type(e).__name__} {e}")
+            self._closeInterface()
             raise ConnectionFailError("Meshtastic", self.host, self.port) from e
 
         return
@@ -112,6 +116,24 @@ class MeshtasticClientWrapper:
     def _findPort(self):
         logger.info("[Meshtastic] Recherche du port série du noeud")
 
+        port = self._searchPort()
+        if port is None:
+            logger.error("Aucun port série trouvé pour 'Meshtastic'")
+            raise PortNotFoundError("Meshtastic")
+
+        self.port = port.device
+        logger.info(f"[Meshtastic] Port trouvé : {self.port} ({port.description})")
+
+        return
+
+
+
+    ##
+    # @brief Cherche, sans journaliser, le port série dont la description contient un des mots-clés définis dans MESHTASTIC_DESCRIPTION.
+    #
+    # @return Port série trouvé (ListPortInfo), None si aucun ne correspond.
+    ##
+    def _searchPort(self):
         keywords = Config.MESHTASTIC_DESCRIPTION
         ports    = serial.tools.list_ports.comports()
 
@@ -119,14 +141,9 @@ class MeshtasticClientWrapper:
             description = port.description.lower()
             for keyword in keywords:
                 if keyword.lower() in description:
-                    self.port = port.device
-                    logger.info(f"[Meshtastic] Port trouvé : {self.port} ({port.description})")
-                    return
+                    return port
 
-        logger.error("Aucun port série trouvé pour 'Meshtastic'")
-        raise PortNotFoundError("Meshtastic")
-
-        return
+        return None
 
 
 
@@ -175,17 +192,57 @@ class MeshtasticClientWrapper:
 
         return
 
+    ##
+    # @brief Callback interne appelé par pubsub quand la liaison série avec le noeud est perdue (noeud débranché).
+    #
+    # @param interface Interface série perdue.
+    ##
+    def _onConnectionLost(self, interface):
+        if interface is not self.client:
+            return
+
+        logger.warning("[Meshtastic] Liaison série perdue (noeud débranché ?)")
+
+        self.state = ConnectionState.DISCONNECTED
+
+        return
+
 # =============================================================================
 #  Boucle de traitement
 # =============================================================================
 
     ##
     # @brief Maintient le programme actif indéfiniment en attendant les paquets Meshtastic.
+    #
+    # Si autoReconnect est actif, attend le branchement du noeud lorsqu'il n'est pas connecté
+    # (au démarrage ou après un débranchement) et s'y connecte dès qu'il apparaît.
     ##
     def waitForever(self):
         logger.info("[Meshtastic] En attente de paquets (boucle infinie)")
 
+        waitingLogged = False
+
         while True:
+            if self.autoReconnect and self.state != ConnectionState.CONNECTED:
+                self._closeInterface()
+
+                # Noeud absent : attente silencieuse de son branchement
+                if self._searchPort() is None:
+                    if not waitingLogged:
+                        logger.warning(f"[Meshtastic] Noeud non branché, nouvelle tentative toutes les {self.retryDelay} s")
+                        waitingLogged = True
+                    time.sleep(self.retryDelay)
+                    continue
+
+                try:
+                    self.connect()
+                    waitingLogged = False
+                    logger.info("[Meshtastic] Noeud connecté")
+
+                except ConnectionFailError:
+                    time.sleep(self.retryDelay)
+                    continue
+
             time.sleep(1)
 
         return
@@ -193,6 +250,24 @@ class MeshtasticClientWrapper:
 # =============================================================================
 #  Fermeture
 # =============================================================================
+
+    ##
+    # @brief Ferme, sans lever d'erreur, l'interface série restée ouverte après un échec de connexion ou un débranchement.
+    ##
+    def _closeInterface(self):
+        if self.client is None:
+            return
+
+        try:
+            self.client.close()
+
+        except Exception as e:
+            logger.warning(f"[Meshtastic] Fermeture de l'interface série impossible : {e}")
+
+        self.client = None
+
+        return
+
 
     ##
     # @brief Se désabonne du topic pubsub et ferme l'interface série proprement.
@@ -209,6 +284,7 @@ class MeshtasticClientWrapper:
             logger.info(f"[Meshtastic] Désabonnement du topic pubsub '{self.topic}'")
 
             pub.unsubscribe(self._onReceive, self.topic)
+            pub.unsubscribe(self._onConnectionLost, "meshtastic.connection.lost")
 
         except Exception as e:
             self.state = ConnectionState.ERROR

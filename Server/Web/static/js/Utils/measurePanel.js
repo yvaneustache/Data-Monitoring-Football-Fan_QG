@@ -60,7 +60,6 @@ export class MeasurePanel
     load(data)
     {
         this.chart.setHistory("value", data.history);
-        this._setCurrent(data.history);
         this.setStatistics(data);
     }
 
@@ -72,17 +71,17 @@ export class MeasurePanel
     append(data)
     {
         this.chart.addPoints("value", data.points);
-        this._setCurrent(data.points);
         this.setStatistics(data);
     }
 
     /**
-     * @brief Affiche la moyenne, le minimum et le maximum ("—" si absents).
+     * @brief Affiche la valeur actuelle, la moyenne, le minimum et le maximum ("—" si absents, après une remise à zéro).
      *
-     * @param {{average: number|null, minimum: number|null, maximum: number|null}} data Statistiques.
+     * @param {{current: number|null, average: number|null, minimum: number|null, maximum: number|null}} data Statistiques.
      */
     setStatistics(data)
     {
+        this.root.querySelector(".current").textContent = this._format(data.current);
         this.root.querySelector(".average").textContent = this._format(data.average);
         this.root.querySelector(".minimum").textContent = this._format(data.minimum);
         this.root.querySelector(".maximum").textContent = this._format(data.maximum);
@@ -91,12 +90,6 @@ export class MeasurePanel
     // ------------------------------------------------------------------------
     //  Fonctions internes
     // ------------------------------------------------------------------------
-
-    _setCurrent(points)
-    {
-        if (points && points.length)
-            this.root.querySelector(".current").textContent = this._format(points[points.length - 1][1]);
-    }
 
     _format(value)
     {

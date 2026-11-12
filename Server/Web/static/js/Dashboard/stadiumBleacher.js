@@ -3,7 +3,7 @@
  *
  * @brief Logique de la page de détail d'une tribune.
  *
- * Charge l'historique de vibration et d'acoustique de la tribune identifiée par window.id, met à jour les indicateurs et les graphiques à chaque nouvelle mesure reçue via SocketIO, et gère la navigation dans le temps et les évènements du match.
+ * Charge l'historique de vibration, d'acoustique et de température de la tribune identifiée par window.id, met à jour les indicateurs et les graphiques à chaque nouvelle mesure reçue via SocketIO, et gère la navigation dans le temps et les évènements du match.
  */
 
 // ============================================================================
@@ -13,6 +13,7 @@
 import { TimeNavigator, bindLiveIndicator } from "../Utils/timeChart.js";
 import { MatchEvents } from "../Utils/matchEvents.js";
 import { MeasurePanel, showToast } from "../Utils/measurePanel.js";
+import { fitChartsToScreen } from "../Utils/fitCharts.js";
 
 // ============================================================================
 //  Initialisation
@@ -31,39 +32,41 @@ const events = new MatchEvents(socket, timeNavigator, document.getElementById("e
 
 const resetStatistics = (dataType) => socket.emit("resetStadiumBleacherStatistics", window.id, dataType);
 
-const panels = {
-    accelerometer: new MeasurePanel("accelerometer", {
-        navigator:    timeNavigator,
-        events:       events,
-        label:        "Vibration",
-        unit:         "m/s²",
-        digits:       2,
-        suggestedMin: 0,
-        suggestedMax: 1,
-        onReset:      () => resetStatistics("accelerometer"),
-    }),
-    acoustic: new MeasurePanel("acoustic", {
-        navigator:    timeNavigator,
-        events:       events,
-        label:        "Acoustique",
-        unit:         "dB(A)",
-        digits:       1,
-        suggestedMin: 30,
-        suggestedMax: 90,
-        onReset:      () => resetStatistics("acoustic"),
-    }),
+/** @brief Réglages des panneaux de mesure ; seuls ceux présents dans la page (capteurs de la tribune) sont créés. */
+const PANEL_SETTINGS = {
+    accelerometer: { label: "Vibration",   unit: "m/s²",  digits: 2, suggestedMin: 0,  suggestedMax: 1,  request: "getStadiumBleacherAccelerometer" },
+    acoustic:      { label: "Acoustique",  unit: "dB(A)", digits: 1, suggestedMin: 30, suggestedMax: 90, request: "getStadiumBleacherAcoustic" },
+    temperature:   { label: "Température", unit: "°C",    digits: 1, suggestedMin: 10, suggestedMax: 30, request: "getStadiumBleacherTemperature" },
 };
+
+const panels = {};
+for (const [dataType, settings] of Object.entries(PANEL_SETTINGS))
+{
+    if (!document.getElementById(dataType))
+        continue;
+
+    panels[dataType] = new MeasurePanel(dataType, {
+        navigator:    timeNavigator,
+        events:       events,
+        label:        settings.label,
+        unit:         settings.unit,
+        digits:       settings.digits,
+        suggestedMin: settings.suggestedMin,
+        suggestedMax: settings.suggestedMax,
+        onReset:      () => resetStatistics(dataType),
+    });
+}
 
 document.getElementById("reset-all").addEventListener("click", () =>
 {
-    resetStatistics("accelerometer");
-    resetStatistics("acoustic");
+    for (const dataType of Object.keys(panels))
+        resetStatistics(dataType);
 });
 
 const requestData = () =>
 {
-    socket.emit("getStadiumBleacherAccelerometer", window.id);
-    socket.emit("getStadiumBleacherAcoustic", window.id);
+    for (const dataType of Object.keys(panels))
+        socket.emit(PANEL_SETTINGS[dataType].request, window.id);
 };
 
 requestData();
@@ -83,7 +86,7 @@ socket.on("getStadiumBleacherAccelerometerResponse", (data) =>
     if (window.DEBUG)
         console.log(`[StadiumBleacher] getStadiumBleacherAccelerometerResponse - ${data.history.length} point(s)`);
 
-    panels.accelerometer.load(data);
+    panels.accelerometer?.load(data);
 });
 
 
@@ -99,7 +102,23 @@ socket.on("getStadiumBleacherAcousticResponse", (data) =>
     if (window.DEBUG)
         console.log(`[StadiumBleacher] getStadiumBleacherAcousticResponse - ${data.history.length} point(s)`);
 
-    panels.acoustic.load(data);
+    panels.acoustic?.load(data);
+});
+
+
+
+/**
+ * @brief Réception de l'historique de température de la tribune.
+ */
+socket.on("getStadiumBleacherTemperatureResponse", (data) =>
+{
+    if (data.id !== window.id)
+        return;
+
+    if (window.DEBUG)
+        console.log(`[StadiumBleacher] getStadiumBleacherTemperatureResponse - ${data.history.length} point(s)`);
+
+    panels.temperature?.load(data);
 });
 
 
@@ -112,7 +131,7 @@ socket.on("newStadiumBleacherAccelerometer", (data) =>
     if (data.id !== window.id)
         return;
 
-    panels.accelerometer.append(data);
+    panels.accelerometer?.append(data);
 });
 
 
@@ -125,7 +144,20 @@ socket.on("newStadiumBleacherAcoustic", (data) =>
     if (data.id !== window.id)
         return;
 
-    panels.acoustic.append(data);
+    panels.acoustic?.append(data);
+});
+
+
+
+/**
+ * @brief Réception d'un nouvel envoi de température.
+ */
+socket.on("newStadiumBleacherTemperature", (data) =>
+{
+    if (data.id !== window.id)
+        return;
+
+    panels.temperature?.append(data);
 });
 
 
@@ -149,7 +181,7 @@ socket.on("statisticsReset", (data) =>
     if (data.kind !== "stadiumBleacher" || data.id !== window.id || !panels[data.dataType])
         return;
 
-    panels[data.dataType].setStatistics({ average: null, minimum: null, maximum: null });
+    panels[data.dataType].setStatistics(data);
 });
 
 
@@ -175,3 +207,6 @@ socket.on("serverClose", () =>
 
     window.location.href = "/";
 });
+
+// Hauteur des courbes adaptée à la hauteur de l'écran : tous les blocs tiennent sans défilement
+fitChartsToScreen(document.querySelector(".main-col"));

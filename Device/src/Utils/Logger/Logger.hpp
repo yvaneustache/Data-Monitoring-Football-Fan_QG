@@ -3,7 +3,7 @@
  *
  * @brief Déclaration de la classe Logger.
  *
- * Fournit la classe Logger permettant d'écrire des messages horodatés sur le port série et optionnellement sur le système de fichiers LittleFS. Quand le fichier atteint LOGGER_MAX_FILE_SIZE, les premières lignes sont supprimées jusqu'à libérer assez de place pour la nouvelle entrée.
+ * Fournit la classe Logger permettant d'écrire des messages horodatés sur le port série et optionnellement sur le système de fichiers LittleFS. Le fichier grossit jusqu'à LOGGER_MAX_FILE_SIZE ; quand il est plein, ou qu'il n'y a plus de place sur LittleFS, l'écriture dans le fichier s'arrête (les messages restent envoyés sur le port série). Elle reprend d'elle-même si de la place est libérée (suppression du fichier par la console, cf. Config/Log/Log.hpp).
  */
 
 #ifndef _LOGGER_HPP_
@@ -61,6 +61,7 @@ class Logger
         const char * name;     ///< @brief Nom du module affiché en préfixe.
         bool fileEnabled;      ///< @brief Écriture fichier LittleFS activée.
         std::string filePath;  ///< @brief Chemin du fichier de log sur LittleFS.
+        bool fileStopped;      ///< @brief Écriture fichier arrêtée (fichier plein ou plus de place) : message affiché une seule fois.
 
 // ============================================================================
 //  Constructeur
@@ -139,18 +140,19 @@ class Logger
         void write(Level level, const char * message);
 
         /**
-         * @brief Écrit une entrée dans le fichier LittleFS. Déclenche un trim si le fichier est plein.
+         * @brief Écrit une entrée dans le fichier LittleFS, sauf si le fichier est plein ou s'il n'y a plus de place.
          *
          * @param entry Ligne complète formatée à écrire.
          */
         void writeFile(const char * entry);
 
         /**
-         * @brief Supprime les premières lignes du fichier jusqu'à ce que la taille courante + entrySize <= LOGGER_MAX_FILE_SIZE. Réécrit intégralement le fichier après trim.
+         * @brief Arrête ou reprend l'écriture dans le fichier, avec un message sur le port série au changement d'état.
          *
-         * @param entrySize Taille en octets de l'entrée à insérer (avec '\n').
+         * @param stopped Écriture arrêtée.
+         * @param reason  Raison de l'arrêt (message).
          */
-        void trimFile(size_t entrySize);
+        void setFileStopped(bool stopped, const char * reason);
 
         /**
          * @brief Retourne le label texte d'un niveau de sévérité.

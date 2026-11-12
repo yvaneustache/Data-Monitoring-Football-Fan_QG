@@ -1,18 +1,19 @@
 /**
  * @file Log.hpp
  *
- * @brief Interface d'export automatique des logs LittleFS sur le port série.
+ * @brief Console de gestion des fichiers de log LittleFS par le port série.
  *
- * Déclare la fonction dumpLogsOnBoot() à appeler dans setup() après Serial.begin() et LittleFS.begin(). Tous les fichiers .log présents dans /Logs/ sont envoyés via le port série en utilisant un protocole à marqueurs parsé par le script esp32_log_export.sh.
- *
- * Protocole de sortie :
+ * Déclare handleLogCommands(), à appeler dans loop() : petite console de gestion des fichiers
+ * de /Logs/ par le port série (commande terminée par un retour à la ligne) :
  * @code{.txt}
- * <<<DUMP_START>>>
- * <<<FILE_START:/Logs/mqtt.log>>>
- * [00:00:01.042] [MQTT] [INFO] Connexion au broker
- * <<<FILE_END>>>
- * <<<DUMP_END>>>
+ * ls             Liste des fichiers avec leur taille et occupation de LittleFS
+ * cat <fichier>  Contenu d'un fichier (marqueurs FILE_START / FILE_END)
+ * rm <fichier>   Suppression d'un fichier
+ * rm *           Suppression de tous les fichiers de /Logs/
+ * help           Liste des commandes
  * @endcode
+ * Chaque réponse est encadrée par <<<CMD_START:commande>>> et <<<CMD_END>>> (script Scripts/logfiles.sh).
+ * Le contenu d'un fichier (cat) est encadré par <<<FILE_START:/Logs/fichier>>> et <<<FILE_END>>>.
  */
 
 #ifndef _LOG_HPP_
@@ -22,7 +23,10 @@
 //  Import des bibliothèques
 // ============================================================================
 
+#include <string>
+#include <vector>
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -33,8 +37,8 @@
 // ============================================================================
 
 /**
- * @brief Parcourt /Logs/ et envoie tous les fichiers .log via le port série.
+ * @brief Lit les commandes reçues sur le port série (sans bloquer) et exécute celles qui sont complètes.
  */
-void dumpLogsOnBoot();
+void handleLogCommands();
 
 #endif // _LOG_HPP_

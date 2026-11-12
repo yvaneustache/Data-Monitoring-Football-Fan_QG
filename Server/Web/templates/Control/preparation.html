@@ -1,3 +1,4 @@
+{% import "partials/components.html" as ui %}
 <!DOCTYPE html>
 <html lang="fr">
     <head>
@@ -8,64 +9,81 @@
     </head>
     <body>
         {% include "partials/topbar.html" %}
-        <header class="page-header">
-            <h1>Préparation d'avant match</h1>
-            <a href="/event" class="button">← Retour</a>
-        </header>
-        <main>
-            <div>
-                <h2>Domicile</h2>
-                <form id="domicile" class="team-config">
-                    <div class="team">
-                        <input name="team" type=text placeholder="Équipe" {% if lastInformation and matchInformation.domicile.team != None %} value="{{ matchInformation.domicile.team }}" {% endif %} teamId="{{ matchInformation.domicile.id }}">
-                    </div>
-                    <div class="coach">
-                        <input name="coach" type=text placeholder="Entraineur" {% if lastInformation and matchInformation.domicile.coach != None %} value="{{ matchInformation.domicile.coach }}" {% endif %} >
-                    </div>
-                    <div class="player">
-                        {% for i in range(20) %}
-                        <div>
-                            <input name="player{{ i }}" type=text placeholder="Joueur" {% if lastInformation and matchInformation.domicile.player[i].name != None %} value="{{ matchInformation.domicile.player[i].name }}" {% endif %} playerId="{{ matchInformation.domicile.player[i].id }}">
-                            <input name="numero{{ i }}" type=number placeholder="Numéro" min="1" max="99" {% if lastInformation and matchInformation.domicile.player[i].number != 0 %} value="{{ matchInformation.domicile.player[i].number }}" {% endif %}>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </form>
+        <main class="page prep">
+            <div class="prep-title">
+                <div>
+                    <p class="eyebrow">Avant-match</p>
+                    <h1>Préparation du match</h1>
+                </div>
+                <div class="prep-actions">
+                    <button class="btn btn-primary" type="button" data-new-match title="Crée un nouveau match vide, qui devient le match en cours. Le match actuel et ses évènements sont conservés.">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Nouveau match
+                    </button>
+                    {{ ui.backButton() }}
+                </div>
             </div>
-            <div>
-                <form id="match" class="match-config">
-                    <label>Match</label> 
-                    <input name="match" type="text" disabled>
-                    <label>Stade</label>
-                    <input name="stadium" type="text" {% if lastInformation and matchInformation.stadium != None %} value="{{ matchInformation.stadium }}" {% endif %} matchId="{{ matchInformation.id }}">
-                    <label>Configuration de contôle d'évènements</label>
-                    <select id="config" name="config">
-                        {% for config in configurationList %}
-                        <option {% if lastInformation %}{% if matchInformation.config == config %}selected{% endif %}{% else %}{% if config == "Default" %}selected{% endif %}{% endif %} >{{ config }}</option>
-                        {% endfor %}
-                        <option>Nouvelle configuration</option>
-                    </select>
+
+            {# Équipes, stade et contrôle des évènements : enregistrement automatique #}
+            <section class="prep-card" aria-labelledby="match-title">
+                <div class="prep-card-head">
+                    <h2 id="match-title">Match</h2>
+                    <p class="prep-hint">Enregistrement automatique</p>
+                </div>
+                <div class="prep-teams">
+                    <form id="domicile" class="prep-team">
+                        <span class="prep-side">Domicile</span>
+                        <span class="prep-logo" data-team-logo></span>
+                        <input class="prep-input prep-team-name" name="team" type="text" placeholder="Nom de l'équipe" aria-label="Équipe à domicile" {% if lastInformation and matchInformation.domicile.team != None %} value="{{ matchInformation.domicile.team }}" {% endif %} teamId="{{ matchInformation.domicile.id }}">
+                    </form>
+                    <span class="prep-vs" aria-hidden="true">VS</span>
+                    <form id="exterieur" class="prep-team">
+                        <span class="prep-side">Extérieur</span>
+                        <span class="prep-logo" data-team-logo></span>
+                        <input class="prep-input prep-team-name" name="team" type="text" placeholder="Nom de l'équipe" aria-label="Équipe à l'extérieur" {% if lastInformation and matchInformation.exterieur.team != None %} value="{{ matchInformation.exterieur.team }}" {% endif %} teamId="{{ matchInformation.exterieur.id }}">
+                    </form>
+                </div>
+                <form id="match" class="prep-fields">
+                    <input name="match" type="hidden">
+                    <label class="prep-field">
+                        <span>Stade</span>
+                        <input class="prep-input" name="stadium" type="text" placeholder="Stade du Moustoir" {% if lastInformation and matchInformation.stadium != None %} value="{{ matchInformation.stadium }}" {% endif %} matchId="{{ matchInformation.id }}">
+                    </label>
+                    <label class="prep-field">
+                        <span>Configuration du contrôle des évènements</span>
+                        <select class="prep-input" id="config" name="config">
+                            {% for config in configurationList %}
+                            <option {% if lastInformation %}{% if matchInformation.config == config %}selected{% endif %}{% else %}{% if config == "Default" %}selected{% endif %}{% endif %} >{{ config }}</option>
+                            {% endfor %}
+                            <option>Nouvelle configuration</option>
+                        </select>
+                    </label>
                 </form>
-            </div>
-            <div>
-                <h2>Exterieur</h2>
-                <form id="exterieur" class="team-config">
-                    <div class="team">
-                        <input name="team" type=text placeholder="Équipe" {% if lastInformation and matchInformation.exterieur.team != None %} value="{{ matchInformation.exterieur.team }}" {% endif %} teamId="{{ matchInformation.exterieur.id }}">
-                    </div>
-                    <div class="coach">
-                        <input name="coach" type=text placeholder="Entraineur" {% if lastInformation and matchInformation.exterieur.coach != None %} value="{{ matchInformation.exterieur.coach }}" {% endif %}>
-                    </div>
-                    <div class="player">
-                        {% for i in range(20) %}
-                        <div>
-                            <input name="player{{ i }}" type=text placeholder="Joueur" {% if lastInformation and matchInformation.exterieur.player[i].name != None %} value="{{ matchInformation.exterieur.player[i].name }}" {% endif %} playerId="{{ matchInformation.exterieur.player[i].id }}">
-                            <input name="numero{{ i }}" type=number placeholder="Numéro" min="1" max="99" {% if lastInformation and matchInformation.exterieur.player[i].number != 0 %} value="{{ matchInformation.exterieur.player[i].number }}" {% endif %}>
-                        </div>
+            </section>
+
+            {# Capteurs installés dans chaque tribune : mesures affichées sur le Dashboard et les pages Tribune #}
+            <section class="prep-card" aria-labelledby="sensors-title">
+                <div class="prep-card-head">
+                    <h2 id="sensors-title">Capteurs des tribunes</h2>
+                    <p class="prep-hint sensors-status" data-sensors-status role="status">Enregistrement automatique</p>
+                </div>
+                <p class="prep-help">Cochez les mesures prises dans chaque tribune. Les pages Tribune et la vue du stade n'affichent que les mesures cochées.</p>
+                <table class="sensors-table" data-sensors-table>
+                    <thead>
+                        <tr><th>Tribune</th><th>Acoustique</th><th>Vibration</th><th>Température</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for bleacher in stadiumBleachers %}
+                        <tr data-bleacher-id="{{ bleacher.id }}">
+                            <td><span class="sensors-swatch" style="background-color: {{ bleacher.color }}"></span>{{ bleacher.name }} <small>n°{{ bleacher.id }}</small></td>
+                            {% for metric in ["acoustic", "accelerometer", "temperature"] %}
+                            <td><input type="checkbox" data-metric="{{ metric }}" aria-label="{{ bleacher.name }} : {{ {'acoustic': 'acoustique', 'accelerometer': 'vibration', 'temperature': 'température'}[metric] }}" {% if metric in bleacher.metrics %}checked{% endif %}></td>
+                            {% endfor %}
+                        </tr>
                         {% endfor %}
-                    </div>
-                </form>
-            </div>
+                    </tbody>
+                </table>
+            </section>
         </main>
         <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
         <script>

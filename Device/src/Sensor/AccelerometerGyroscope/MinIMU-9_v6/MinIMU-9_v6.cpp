@@ -65,9 +65,11 @@ std::string MinIMU_9_v6::formatData(MinIMU_9_v6Data & data, int stadiumBleacherI
     json["t"] = getMQTTTopic(SensorType::ACCELEROMETER_GYROSCOPE);
     json["n"] = MinIMU_9_v6::name;
     json["id"] = stadiumBleacherId;
+    // Buffer circulaire envoyé dans l'ordre chronologique : de la mesure la plus ancienne
+    // (case suivant la dernière écrite) à la plus récente (dernière case écrite)
     JsonArray arrayA = json["a"].to<JsonArray>();
-    for (int index=0; index < NB_VALUE; index++)
-        arrayA.add(serialized(String(data.accelerationMax[index], 2)));
+    for (int k=0; k < NB_VALUE; k++)
+        arrayA.add(serialized(String(data.accelerationMax[(data.dataIndex + 1 + k) % NB_VALUE], 2)));
 
     // Sérialisation en chaîne JSON + ajout d'un saut de ligne comme délimiteur de message
     serializeJson(json, jsonString);

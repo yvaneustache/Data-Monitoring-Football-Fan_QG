@@ -53,10 +53,11 @@ function usage()
     local name=$(basename "${0}")
 
     echo -e "${_WHITE}COMMANDE${_RESET}"
-    echo -e "\t${_MAGENTA}${name} <cible>"${_RESET}
+    echo -e "\t${_MAGENTA}${name} [cible]"${_RESET}
     echo ""
     echo -e "${_WHITE}DESCRIPTION${_RESET}"
     echo -e "\tFlash un binaire sur une carte ESP32."
+    echo -e "\tChaque sélection (cible, port série, firmware/configuration, type de noeud) peut être saisie par son numéro ou par son nom ; option 1 par défaut (touche Entrée seule)."
     echo ""
     echo -e "${_WHITE}OPTIONS${_RESET}"
     echo -e "\t-h | --help"
@@ -67,9 +68,10 @@ function usage()
     echo -e "\t\tExemple: ${name} --verbose device"
     echo ""
     echo -e "${_WHITE}ARGUMENTS${_RESET}"
-    echo -e "\t<cible>"
-    echo -e "\t\tNom de la cible à flahser. [ device | meshtastic | meshcore ]"
-    echo -e "\t\tExemple: ${name} device"
+    echo -e "\t[cible]"
+    echo -e "\t\tNom ou numéro de la cible à flasher. [ 1 device | 2 meshtastic | 3 meshcore ]"
+    echo -e "\t\tSans argument, la cible est demandée dans une liste."
+    echo -e "\t\tExemple: ${name} device, ${name} 1"
 
     return
 }
@@ -214,39 +216,75 @@ function flashMeshcoreConfiguration()
 # =============================================================================
 
 ##
+# @brief Affiche une liste numérotée d'options et lit la sélection.
+#
+# La sélection peut être saisie par son numéro ou par son nom ; option 1 par défaut (touche Entrée seule).
+#
+# @param question Question affichée.
+# @param $@       Options proposées (après la question).
+#
+# @return (stdout) Option correspondant au numéro saisi, sinon la saisie telle quelle.
+##
+function selectOption()
+{
+    local question="${1}"
+    shift
+    local options=("$@")
+    local answer
+
+    echo "${question}" >&2
+    for index in "${!options[@]}"
+    do
+        echo "  $((index + 1))) ${options[${index}]}" >&2
+    done
+    if [ "${#options[@]}" -gt 0 ]
+    then
+        echo -n "Choix [1] : " >&2
+    else
+        echo -n "> " >&2
+    fi
+    read answer
+
+    # Entrée seule : première option
+    if [ -z "${answer}" ] && [ "${#options[@]}" -gt 0 ]
+    then
+        echo "${options[0]}"
+        return
+    fi
+
+    # Numéro valide : remplacé par l'option correspondante
+    if [[ "${answer}" =~ ^[0-9]+$ ]] && [ "${answer}" -ge 1 ] && [ "${answer}" -le "${#options[@]}" ]
+    then
+        echo "${options[$((answer - 1))]}"
+    else
+        echo "${answer}"
+    fi
+
+    return
+}
+
+
+
+##
 # @brief Affiche la boîte de dialogue pour la sélection du port série.
 ##
 function selectPort()
 {
-    local foundACM=0
-    local foundUSB=0
+    local ports=()
+    local candidate
 
-    # Vérifie si au moins un port série ACM est ouvert
-    for port in /dev/ttyACM*
+    # Liste des ports série USB ouverts
+    for candidate in /dev/ttyACM* /dev/ttyUSB*
     do
-        [ -e "${port}" ] && { foundACM=1; break; }
+        [ -e "${candidate}" ] && ports+=("${candidate}")
     done
 
-    # Vérifie si au moins un port série USB est ouvert
-    for port in /dev/ttyUSB*
-    do
-        [ -e "${port}" ] && { foundUSB=1; break; }
-    done
-
-    if [ "${foundACM}" -eq 0 ] && [ "${foundUSB}" -eq 0 ]
+    if [ "${#ports[@]}" -eq 0 ]
     then
-        # Si aucun port série est ouvert
         echo "Aucun port série USB n'est ouvert." >&2
-    else
-        # Sinon au moins un port série est ouvert
-        echo "Liste des ports série USB :" >&2
-        [ "${foundACM}" -gt 0 ] && ls /dev/ttyACM*
-        [ "${foundUSB}" -gt 0 ] && ls /dev/ttyUSB*
     fi
 
-    echo "Sélectionner le port série USB correspondant à la carte à flasher" >&2
-    echo -n "> " >&2
-    read port
+    port=$(selectOption "Sélectionner le port série USB correspondant à la carte à flasher (numéro ou chemin) :" "${ports[@]}")
 
     return
 }
@@ -258,11 +296,7 @@ function selectPort()
 ##
 function selectChoice()
 {
-    echo "Que voulez vous flash (firmware/configuration) ?" >&2
-    echo -n "> " >&2
-    read choice
-
-    echo "${choice}"
+    selectOption "Que voulez vous flasher ?" "firmware" "configuration"
 
     return
 }
@@ -274,11 +308,7 @@ function selectChoice()
 ##
 function selectNodeType()
 {
-    echo "Quelle est le type de noeud à configurer (gateway/sensor) ?" >&2
-    echo -n "> " >&2
-    read nodeType
-
-    echo "${nodeType}"
+    selectOption "Quel est le type de noeud à configurer ?" "gateway" "sensor"
 
     return
 }
@@ -309,12 +339,21 @@ function main()
     fi
 
     # Vérification du nombre d'arguments
-    if [[ "${#}" -ne 1 ]]
+    if [[ "${#}" -gt 1 ]]
     then
-        error "${argumentErrorCode}" "Nombre d'arguments insuffisant. Au moins 1 argument est requis: <cible>."
+        error "${argumentErrorCode}" "Trop d'arguments. Un seul argument est attendu: <cible>."
     fi
 
+    # Cible : argument (nom ou numéro) ou sélection dans la liste
+    local targets=("device" "meshtastic" "meshcore")
     local target="${1}"
+    if [ -z "${target}" ]
+    then
+        target=$(selectOption "Quelle cible voulez vous flasher ?" "${targets[@]}")
+    elif [[ "${target}" =~ ^[0-9]+$ ]] && [ "${target}" -ge 1 ] && [ "${target}" -le "${#targets[@]}" ]
+    then
+        target="${targets[$((target - 1))]}"
+    fi
 
     case "${target}" in
         # Flash du device

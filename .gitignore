@@ -31,3 +31,10 @@ Device/doc
 Server/doc
 Resources/Data/gatewayContact.txt
 ###############################################################################
+###############################################################################
+#   Vidéos des matchs (trop volumineuses pour le dépôt)                       #
+###############################################################################
+Resources/Video/*
+!Resources/Video/.gitkeep
+!Resources/Video/videos.json
+*.mp4

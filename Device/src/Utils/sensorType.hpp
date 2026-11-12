@@ -23,6 +23,7 @@ enum class SensorType
     HEART_RATE,                 ///< @brief Capteur de fréquence cardiaque.
     ACCELEROMETER_GYROSCOPE,    ///< @brief Capteur accéléromètre / gyroscope.
     ACOUSTIC,                   ///< @brief Capteur acoustique.
+    TEMPERATURE,                ///< @brief Capteur de température.
     SYSTEM,                     ///< @biref Type pour les messages d'information système
     UNKNOW                      ///< @brief Type inconnu ou non initialisé.
 };

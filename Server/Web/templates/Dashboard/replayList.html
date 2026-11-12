@@ -1,0 +1,60 @@
+{% import "partials/components.html" as ui %}
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Rejeu d'un match</title>
+        {% include "partials/head.html" %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/Dashboard/detail.css') }}">
+    </head>
+    <body>
+        {% include "partials/topbar.html" %}
+        <main class="page replay-page">
+            <div class="title-row">
+                <div>
+                    <p class="eyebrow">Rejeu</p>
+                    <h1 class="replay-title">Rejouer un match</h1>
+                </div>
+                <div class="title-actions">
+                    {{ ui.backButton() }}
+                </div>
+            </div>
+
+            <section class="panel" aria-labelledby="upload-title">
+                <div class="panel-header">
+                    <h2 id="upload-title">Charger un match</h2>
+                </div>
+                <p class="replay-help">Choisissez l'archive ZIP d'un match (bouton « Télécharger le ZIP » des pages Tribune, Supporter ou Comparaison). Le match est affiché à part : les données en direct ne sont pas modifiées.</p>
+                <form class="replay-form" method="post" enctype="multipart/form-data">
+                    <input class="replay-file" type="file" name="archive" accept=".zip,application/zip" required aria-label="Archive ZIP du match">
+                    <button class="btn btn-primary" type="submit">Rejouer le match</button>
+                </form>
+                {% if error %}
+                <p class="replay-error" role="alert">{{ error }}</p>
+                {% endif %}
+            </section>
+
+            <section class="panel" aria-labelledby="loaded-title">
+                <div class="panel-header">
+                    <h2 id="loaded-title">Matchs chargés</h2>
+                </div>
+                {% if replays %}
+                <ul class="replay-list">
+                    {% for replay in replays %}
+                    <li>
+                        <a class="replay-item" href="{{ url_for('replayPage', replay_id=replay.id) }}">
+                            <span class="replay-item-title">
+                                {% if replay.domicile and replay.domicile.team and replay.exterieur and replay.exterieur.team %}{{ replay.domicile.team }} – {{ replay.exterieur.team }}{% elif replay.match %}Match n°{{ replay.match }}{% else %}{{ replay.filename }}{% endif %}
+                            </span>
+                            <span class="replay-item-detail">Match du {{ replay.date }} · {{ replay.filename }} · chargé le {{ replay.loadedAt }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="empty-state">Aucun match chargé. Les matchs chargés sont conservés jusqu'au redémarrage du serveur.</p>
+                {% endif %}
+            </section>
+        </main>
+    </body>
+</html>

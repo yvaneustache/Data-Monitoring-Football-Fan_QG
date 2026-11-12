@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Vidéo du match</title>
+        {% include "partials/head.html" %}
+        <style>
+            /* Fenêtre de la vidéo du rejeu : vidéo sur toute la fenêtre, titre de l'évènement en haut */
+            html, body { height: 100%; margin: 0; background-color: #000000; overflow: hidden; }
+            .video-window { display: flex; flex-direction: column; height: 100%; }
+            .video-window-caption { margin: 0; padding: 8px 14px; font-weight: 600; color: #FFFFFF; background-color: #1B1615; border-bottom: 2px solid #EA670B; }
+            .video-window-caption:empty::before { content: "Vidéo du match · pilotée par la page du rejeu"; color: #BDBDBD; font-weight: 500; }
+            .video-window video { flex: 1; min-height: 0; width: 100%; background-color: #000000; }
+        </style>
+    </head>
+    <body>
+        <main class="video-window">
+            <p class="video-window-caption" data-caption></p>
+            <video controls playsinline></video>
+        </main>
+        <script type="module" src="{{ url_for('static', filename='js/Dashboard/videoWindow.js') }}"></script>
+    </body>
+</html>

@@ -11,14 +11,17 @@
 # =============================================================================
 
 import os
+import re
+import unicodedata
 import json
 from datetime import datetime
-from flask import render_template, request, redirect, url_for, session, Response
+from flask import render_template, request, redirect, url_for, session, Response, jsonify, send_from_directory, abort
 
 from Server.Config.setting import Config
-from Server.Utils.data import getNameOfSupporter, getColorOfSupporter, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getColorOfTracker
+from Server.Utils.data import getNameOfSupporter, getColorOfSupporter, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getColorOfTracker, getStadiumBleacherIdByName, getStadiumBleacherList, getMetricsOfStadiumBleacher
 from Server.Utils.event import loadConfiguration, getConfigurationList, loadMatchInformation, loadConfigurationInformation, getCurrentMatch, getMatchEventList
-from Server.Utils.export import EXPORTS, buildCsv
+from Server.Utils.export import EXPORTS, buildCsv, buildZip
+from Server.Utils.replay import ReplayError, loadReplay, getReplay, getReplayList, modifyReplayEvents, getReplayExport, clipReplayData
 from Server.Utils.logger import Logger
 
 # =============================================================================
@@ -26,6 +29,29 @@ from Server.Utils.logger import Logger
 # =============================================================================
 
 logger = Logger("Serveur/Routes")
+
+# =============================================================================
+#  Configuration
+# =============================================================================
+
+##
+# @brief Points du stade du Moustoir équipés de capteurs (cf. plan d'installation), placés sur la vue
+#        static/images/moustoir-3d.webp : nom de la tribune (stadiumBleacher.json), titre affiché, emplacement,
+#        position sur l'image (en % de la largeur et de la hauteur), mesures prises.
+#
+# Sur le plan, Nord = tribune Lorient Agglomération et Sud = tribune B&B Hôtels ; Est = côté Jean Floc'h,
+# Ouest = côté Crédit Mutuel de Bretagne. L'acoustique et la vibration sont mesurées dans trois coins,
+# la température dans la tribune Sud et à l'extérieur (rue Jean Le Coutaller).
+# Les mesures affichées sont celles configurées pour la tribune (champ "metrics" de stadiumBleacher.json,
+# modifiable dans /event/preparation) ; "metrics" ci-dessous ne sert que si la tribune n'est pas déclarée.
+##
+STADIUM_POINTS = [
+    {"name": "Nord-Est",  "title": "Nord-Est",  "place": "Lorient Agglomération · Jean Floc'h",    "x": 45.8, "y": 30.6, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud-Est",   "title": "Sud-Est",   "place": "Jean Floc'h · B&B Hôtels",               "x": 85.6, "y": 54.5, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud-Ouest", "title": "Sud-Ouest", "place": "B&B Hôtels · Crédit Mutuel de Bretagne", "x": 53.5, "y": 72.6, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud",       "title": "Sud",       "place": "Tribune B&B Hôtels",                     "x": 74.5, "y": 65.3, "metrics": ["temperature"]},
+    {"name": "Exterieur", "title": "Extérieur", "place": "Rue Jean Le Coutaller",                  "x": 23.2, "y": 85.2, "metrics": ["temperature"]},
+]
 
 # =============================================================================
 #  Fonctions internes
@@ -50,14 +76,75 @@ def _neighbours(ids, currentId):
 
 
 ##
-# @brief Préfixe des fichiers exportés : numéro du match, date et heure de l'export.
+# @brief Vidéos de match disponibles pour le rejeu (fichiers .mp4 et .webm du dossier VIDEO_PATH).
 #
-# @param match Match en cours (cf. getCurrentMatch()).
+# @return list Noms des fichiers, triés.
+##
+def _videoList():
+    try:
+        return sorted(name for name in os.listdir(Config.PATH["video"]) if name.lower().endswith((".mp4", ".webm")))
+    except OSError:
+        return []
+
+
+
+##
+# @brief Réglages des vidéos (videos.json du dossier VIDEO_PATH) : instant du coup d'envoi dans chaque vidéo (s).
 #
-# @return str Préfixe (ex : "match_7_20261005-1530").
+# @return dict {nom du fichier: {"kickoff": secondes}}, vide si le fichier est absent ou illisible.
+##
+def _loadVideoSettings():
+    try:
+        with open(os.path.join(Config.PATH["video"], "videos.json")) as file:
+            return json.load(file)
+    except (OSError, ValueError):
+        return {}
+
+
+
+##
+# @brief Abréviations des équipes connues (motif recherché dans le nom saisi, abréviation), comme les logos (teams.js).
+##
+TEAM_ABBREVIATIONS = [
+    (r"lorient|^\s*fcl\s*$", "fcl"),
+    (r"monaco|^\s*asm\s*$",  "asm"),
+    (r"renn|^\s*srfc\s*$",   "srfc"),
+]
+
+
+
+##
+# @brief Abréviation d'une équipe pour un nom de fichier : connue (fcl, asm, srfc), sinon initiales du nom.
+#
+# @param name Nom de l'équipe (None si non saisi).
+#
+# @return str Abréviation en minuscules ("equipe" si le nom est vide).
+##
+def _teamAbbreviation(name):
+    for pattern, abbreviation in TEAM_ABBREVIATIONS:
+        if name and re.search(pattern, name, re.IGNORECASE):
+            return abbreviation
+
+    # Initiales des mots commençant par une lettre ("Stade Brestois 29" → "sb")
+    initials = "".join(word[0] for word in re.split(r"[\s-]+", name or "") if word and word[0].isalpha())
+    initials = unicodedata.normalize("NFKD", initials).encode("ascii", "ignore").decode().lower()
+
+    return initials or "equipe"
+
+
+
+##
+# @brief Préfixe des fichiers exportés : équipes du match, date et heure de l'export.
+#
+# @param match Match (cf. getCurrentMatch()) : équipes "domicile" et "exterieur".
+#
+# @return str Préfixe (ex : "fcl-asm_20261018-2130").
 ##
 def _exportPrefix(match):
-    return f"match_{match['id']}_{datetime.now().strftime('%Y%m%d-%H%M')}"
+    domicile  = _teamAbbreviation((match.get("domicile") or {}).get("team"))
+    exterieur = _teamAbbreviation((match.get("exterieur") or {}).get("team"))
+
+    return f"{domicile}-{exterieur}_{datetime.now().strftime('%Y%m%d-%H%M')}"
 
 # =============================================================================
 #  Enregistrement des routes
@@ -84,7 +171,10 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
     ##
     @app.route("/")
     def index():
-        return render_template("Dashboard/index.html", debug=int(Config.DEBUG), active="dashboard")
+        configured = {item["name"]: item["metrics"] for item in getStadiumBleacherList()}
+        corners = [dict(point, id=getStadiumBleacherIdByName(point["name"]), number=index + 1, metrics=configured.get(point["name"], point["metrics"])) for index, point in enumerate(STADIUM_POINTS)]
+
+        return render_template("Dashboard/index.html", debug=int(Config.DEBUG), corners=corners, active="dashboard")
 
 
 
@@ -126,7 +216,10 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
 
         prevId, nextId = _neighbours([b.getId() for b in stadiumBleacherList], stadium_bleacher_id)
 
-        return render_template("Dashboard/stadiumBleacher.html", debug=int(Config.DEBUG), id=stadium_bleacher_id, name=name, color=color, sensorDelay=Config.SENSOR_DELAY, prevId=prevId, nextId=nextId, active="dashboard")
+        # Mesures des capteurs installés dans la tribune (configurées dans /event/preparation)
+        metrics = getMetricsOfStadiumBleacher(stadium_bleacher_id)
+
+        return render_template("Dashboard/stadiumBleacher.html", debug=int(Config.DEBUG), id=stadium_bleacher_id, name=name, color=color, metrics=metrics, sensorDelay=Config.SENSOR_DELAY, prevId=prevId, nextId=nextId, active="dashboard")
 
 
 
@@ -138,10 +231,194 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
     ##
     @app.route("/comparison/<string:type>/<string:data>")
     def comparisonPage(type, data):
-        if (type, data) not in [("Supporter", "heart_rate"), ("StadiumBleacher", "accelerometer"), ("StadiumBleacher", "acoustic")]:
+        if (type, data) not in [("Supporter", "heart_rate"), ("StadiumBleacher", "accelerometer"), ("StadiumBleacher", "acoustic"), ("StadiumBleacher", "temperature")]:
             return render_template("Control/error.html", code=404), 404
 
-        return render_template("Dashboard/comparison.html", debug=int(Config.DEBUG), sensorDelay=Config.SENSOR_DELAY, data=data, type=type, active="comparison")
+        # Tribunes : seules celles équipées du capteur comparé (configurées dans /event/preparation)
+        allowedIds = [item["id"] for item in getStadiumBleacherList() if data in item["metrics"]] if type == "StadiumBleacher" else None
+
+        return render_template("Dashboard/comparison.html", debug=int(Config.DEBUG), sensorDelay=Config.SENSOR_DELAY, data=data, type=type, allowedIds=allowedIds, active="comparison")
+
+# =============================================================================
+#  Rejeu d'un match
+# =============================================================================
+
+    ##
+    # @brief Page de rejeu : chargement de l'archive ZIP d'un match et liste des matchs chargés.
+    #
+    # En POST, charge l'archive envoyée (champ "archive") et affiche son rejeu.
+    ##
+    @app.route("/replay", methods=["GET", "POST"])
+    def replayListPage():
+        error = None
+
+        if request.method == "POST":
+            archive = request.files.get("archive")
+            if archive is None or archive.filename == "":
+                error = "Aucun fichier sélectionné."
+            else:
+                try:
+                    replayId = loadReplay(archive.read(), archive.filename)
+                    logger.info(f"[Routes] Rejeu chargé : '{archive.filename}' (id={replayId})")
+                    return redirect(url_for("replayPage", replay_id=replayId))
+                except ReplayError as e:
+                    logger.warning(f"[Routes] Rejeu impossible pour '{archive.filename}' : {e}")
+                    error = str(e)
+
+        return render_template("Dashboard/replayList.html", debug=int(Config.DEBUG), replays=getReplayList(), error=error, active="replay"), (400 if error else 200)
+
+
+
+    ##
+    # @brief Page de rejeu d'un match chargé.
+    #
+    # @param replay_id Identifiant du rejeu.
+    ##
+    @app.route("/replay/<string:replay_id>")
+    def replayPage(replay_id):
+        replay = getReplay(replay_id)
+        if replay is None:
+            return redirect(url_for("replayListPage"))
+
+        return render_template("Dashboard/replay.html", debug=int(Config.DEBUG), replay=replay, videos=_videoList(), videoSettings=_loadVideoSettings(), active="replay")
+
+
+
+    ##
+    # @brief Vidéo d'un match (dossier VIDEO_PATH), envoyée par morceaux (en-tête Range) pour se positionner dedans.
+    #
+    # @param name Nom du fichier vidéo.
+    ##
+    @app.route("/video/<path:name>")
+    def videoFile(name):
+        if name not in _videoList():
+            abort(404)
+
+        return send_from_directory(Config.PATH["video"], name, conditional=True)
+
+
+
+    ##
+    # @brief Fenêtre séparée de la vidéo du match, pilotée par la page du rejeu.
+    ##
+    @app.route("/video-window")
+    def videoWindowPage():
+        return render_template("Dashboard/videoWindow.html")
+
+
+
+    ##
+    # @brief Enregistre l'instant du coup d'envoi dans une vidéo (videos.json), pour la synchroniser avec les courbes.
+    ##
+    @app.route("/video/settings", methods=["POST"])
+    def videoSettings():
+        body = request.get_json(silent=True) or {}
+        name = body.get("name")
+        if name not in _videoList():
+            return jsonify({"error": "Vidéo inconnue"}), 404
+
+        try:
+            kickoff = float(body["kickoff"]) if body.get("kickoff") is not None else None
+        except (TypeError, ValueError):
+            return jsonify({"error": "Instant du coup d'envoi invalide"}), 400
+
+        settings = _loadVideoSettings()
+        settings.setdefault(name, {})["kickoff"] = kickoff
+
+        try:
+            with open(os.path.join(Config.PATH["video"], "videos.json"), "w") as file:
+                json.dump(settings, file, ensure_ascii=False, indent=4)
+        except OSError as e:
+            logger.warning(f"[Routes] Enregistrement des réglages vidéo impossible : {e}")
+            return jsonify({"error": "Enregistrement impossible (dossier des vidéos en lecture seule ?)"}), 500
+
+        logger.info(f"[Routes] Vidéo '{name}' : coup d'envoi à {kickoff} s")
+
+        return jsonify({"ok": True})
+
+
+
+    ##
+    # @brief Données d'un match chargé (mesures et évènements), pour la page de rejeu.
+    #
+    # @param replay_id Identifiant du rejeu.
+    ##
+    @app.route("/replay/<string:replay_id>.json")
+    def replayData(replay_id):
+        replay = getReplay(replay_id)
+        if replay is None:
+            return jsonify({"error": "Rejeu introuvable"}), 404
+
+        return jsonify(replay)
+
+
+
+    ##
+    # @brief Modifie les évènements d'un match chargé (ajout, déplacement, suppression), sans toucher au match en cours.
+    #
+    # Corps JSON : {"action": "addMatchEvent" | "moveMatchEvent" | "deleteMatchEvent", "payload": …}.
+    #
+    # @param replay_id Identifiant du rejeu.
+    ##
+    @app.route("/replay/<string:replay_id>/events", methods=["POST"])
+    def replayEvents(replay_id):
+        body = request.get_json(silent=True) or {}
+
+        try:
+            result = modifyReplayEvents(replay_id, body.get("action"), body.get("payload"))
+        except (ReplayError, KeyError, TypeError, ValueError) as e:
+            logger.warning(f"[Routes] Modification des évènements du rejeu id={replay_id} impossible : {e}")
+            return jsonify({"error": str(e)}), 400
+
+        if result is None:
+            return jsonify({"error": "Rejeu introuvable"}), 404
+
+        logger.info(f"[Routes] Rejeu id={replay_id} : {body.get('action')} {body.get('payload')}")
+
+        return jsonify(result)
+
+
+
+    ##
+    # @brief Seuillage d'une donnée d'un match chargé (valeurs hors bornes ramenées aux bornes), enregistré dans le rejeu.
+    #
+    # @param replay_id Identifiant du rejeu.
+    ##
+    @app.route("/replay/<string:replay_id>/clip", methods=["POST"])
+    def replayClip(replay_id):
+        body = request.get_json(silent=True) or {}
+
+        try:
+            modified = clipReplayData(replay_id, body["dataType"], body["min"], body["max"])
+        except (ReplayError, KeyError, TypeError, ValueError) as e:
+            logger.warning(f"[Routes] Seuillage du rejeu id={replay_id} impossible : {e}")
+            return jsonify({"error": str(e)}), 400
+
+        if modified is None:
+            return jsonify({"error": "Rejeu introuvable"}), 404
+
+        logger.info(f"[Routes] Rejeu id={replay_id} : {body['dataType']} seuillé à [{body['min']}, {body['max']}], {modified} valeur(s) modifiée(s)")
+
+        return jsonify({"modified": modified})
+
+
+
+    ##
+    # @brief Téléchargement de l'archive ZIP d'un match chargé, avec ses évènements modifiés.
+    #
+    # @param replay_id Identifiant du rejeu.
+    ##
+    @app.route("/replay/<string:replay_id>.zip")
+    def replayZip(replay_id):
+        export = getReplayExport(replay_id)
+        if export is None:
+            return redirect(url_for("replayListPage"))
+
+        supporters, stadiumBleachers, match, events = export
+        prefix = f"rejeu_{_exportPrefix(match)}"
+        content = buildZip(prefix, supporters, stadiumBleachers, match, events)
+
+        return Response(content, mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={prefix}.zip"})
 
 # =============================================================================
 #  Page de contrôle
@@ -169,6 +446,22 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
 
 
     ##
+    # @brief Téléchargement de l'archive ZIP du match en cours : les fichiers CSV et match.json (pour le rejeu).
+    ##
+    @app.route("/export/match.zip")
+    def exportZip():
+        match = getCurrentMatch(postgresqlClient)
+        events = getMatchEventList(postgresqlClient, match["id"])
+        prefix = _exportPrefix(match)
+        content = buildZip(prefix, supporterList, stadiumBleacherList, match, events)
+
+        logger.info(f"[Routes] Export ZIP du match id={match['id']}")
+
+        return Response(content, mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={prefix}.zip"})
+
+
+
+    ##
     # @brief Page de conrôle des évènements.
     ##
     @app.route("/event")
@@ -186,7 +479,7 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
     @app.route("/event/preparation")
     def preparationPage():
         matchInformation, lastInformation = loadMatchInformation(postgresqlClient)
-        return render_template("Control/preparation.html", debug=int(Config.DEBUG), configurationList=getConfigurationList(), matchInformation=matchInformation, lastInformation=lastInformation, active="control")
+        return render_template("Control/preparation.html", debug=int(Config.DEBUG), configurationList=getConfigurationList(), matchInformation=matchInformation, lastInformation=lastInformation, stadiumBleachers=getStadiumBleacherList(), active="control")
 
 
 

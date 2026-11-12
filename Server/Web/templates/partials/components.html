@@ -47,10 +47,11 @@
                 </button>
                 <span class="timebar-range" data-nav-range></span>
             </div>
+            {# Curseur sur la même ligne que les boutons : bandeau sur une seule ligne #}
+            <div class="timebar-slider">
+                <input type="range" min="0" max="1000" value="1000" data-nav-slider aria-label="Position dans l'historique">
+            </div>
             <button class="btn btn-primary" type="button" data-nav="live">En direct</button>
-        </div>
-        <div class="timebar-slider">
-            <input type="range" min="0" max="1000" value="1000" data-nav-slider aria-label="Position dans l'historique">
         </div>
     </section>
 {% endmacro %}
@@ -89,19 +90,35 @@
     </section>
 {% endmacro %}
 
-{# Téléchargement des fichiers CSV du match : un fichier par type de données #}
-{% macro exportButton() %}
-    <button class="btn btn-primary" type="button" data-export-csv>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Télécharger les CSV
-    </button>
-    <script type="module" src="{{ url_for('static', filename='js/Utils/export.js') }}"></script>
+{# Icône de téléchargement #}
+{% macro downloadIcon() %}
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+{% endmacro %}
+
+{# Téléchargement de l'archive ZIP du match : les fichiers CSV et match.json (pour le rejeu) #}
+{# zipUrl : archive à télécharger (match en cours par défaut) #}
+{% macro exportButton(zipUrl="/export/match.zip") %}
+    <a class="btn btn-primary" href="{{ zipUrl }}" download>
+        {{ downloadIcon() }}
+        Télécharger le ZIP
+    </a>
 {% endmacro %}
 
 {# Colonne des évènements du match #}
-{% macro eventsSidebar() %}
+{% macro eventsSidebar(zipUrl="/export/match.zip") %}
     <aside id="events" class="events" aria-label="Évènements du match">
-        <div class="events-block">
+        <button class="side-blank-toggle" type="button" data-side-blank aria-pressed="false" title="Fermer la colonne des évènements" aria-label="Fermer la colonne des évènements">×</button>
+        <div class="events-block match-clock" data-match-clock>
+            <div class="match-clock-row">
+                <div>
+                    <p class="match-clock-label">Temps de jeu</p>
+                    <p class="match-clock-minute" data-clock-minute>—</p>
+                </div>
+                <p class="match-clock-status" data-clock-status></p>
+            </div>
+            <button class="btn match-clock-toggle" type="button" data-clock-toggle disabled>Arrêt de jeu</button>
+        </div>
+        <div class="events-block events-list-block">
             <h2>Ajouter un évènement</h2>
             <label class="events-time">
                 Heure de l'évènement
@@ -110,12 +127,16 @@
             <div class="event-types" data-event-types></div>
         </div>
         <div class="events-block events-list-block">
-            <h2>Évènements du match</h2>
+            <div class="events-list-head">
+                <h2>Évènements du match</h2>
+                <button class="btn events-visibility" type="button" data-events-visibility aria-pressed="true" title="Afficher ou masquer les évènements sur les courbes">Masquer</button>
+            </div>
+            <div class="event-filters" data-event-filters role="group" aria-label="Types d'évènements affichés sur les courbes"></div>
             <p class="events-empty" data-event-empty>Aucun évènement pour l'instant.</p>
             <ul class="event-list" data-event-list></ul>
         </div>
         <div class="events-block events-list-block">
-            {{ exportButton() }}
+            {{ exportButton(zipUrl) }}
         </div>
     </aside>
 {% endmacro %}

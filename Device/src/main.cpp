@@ -39,6 +39,9 @@
 #ifdef _INMP441_
 #include "./Sensor/Acoustic/INMP441/INMP441.hpp"
 #endif // _INMP441_
+#ifdef _DS18B20_
+#include "./Sensor/Temperature/DS18B20/DS18B20.hpp"
+#endif // _DS18B20_
 
 // ============================================================================
 //  Variable globale
@@ -69,10 +72,9 @@ void setup()
 
     logger = new Logger("Main", true);
 
-    // Temps de délais pour script de récupération de log
-    delay(5000);
-    // Export automatique des logs au boot
-    dumpLogsOnBoot();
+    // Court délai pour que le port USB apparaisse côté PC et que les messages de démarrage soient visibles.
+    // Les logs ne sont plus exportés au démarrage : ils se consultent à la demande (Scripts/logfiles.sh, commande cat).
+    delay(1000);
 
 #if DEBUG == 1
     logger->info(Logger::logString("[SETUP] Démarrage du firmware\n"));
@@ -124,6 +126,9 @@ void setup()
  */
 void loop()
 {
+    // Commandes de gestion des fichiers de log reçues sur le port série (ls, cat, rm)
+    handleLogCommands();
+
     // Mise à jour de la LED
     ledManager->toggle();
 

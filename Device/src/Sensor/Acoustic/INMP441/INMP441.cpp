@@ -103,9 +103,11 @@ std::string INMP441::formatData(INMP441Data & data, int stadiumBleacherId)
     json["t"] = getMQTTTopic(SensorType::ACOUSTIC);
     json["n"] = INMP441::name;
     json["id"] = stadiumBleacherId;
+    // Buffer circulaire envoyé dans l'ordre chronologique : de la mesure la plus ancienne
+    // (case suivant la dernière écrite) à la plus récente (dernière case écrite)
     JsonArray array = json["a"].to<JsonArray>();
-    for (int i=0; i < NB_VALUE; i++)
-        array.add(serialized(String(data.decibel[i],1)));
+    for (int k=0; k < NB_VALUE; k++)
+        array.add(serialized(String(data.decibel[(data.decibelIndex + 1 + k) % NB_VALUE], 1)));
 
     // Sérialisation en chaîne JSON + ajout d'un saut de ligne comme délimiteur de message
     serializeJson(json, jsonString);

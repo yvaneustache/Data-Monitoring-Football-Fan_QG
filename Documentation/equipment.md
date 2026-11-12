@@ -4,13 +4,13 @@
 
 | ID       | Adresse MAC       |
 |----------|-------------------|
-| 6315682D | C7:6F:37:F6:01:36 |
-| 63028A2F | CF:5C:1E:1B:04:CE |
-| 65AB7621 | FE:02:9D:9F:22:1F |
-| 65C1312C | DA:DC:91:B1:19:19 |
-| 6302862B | E3:BC:7E:55:74:C2 |
+| 6315682D | C7:6F:37:F6:01:36 | Yvan
+| 63028A2F | CF:5C:1E:1B:04:CE | Ronan
+| 65AB7621 | C6:63:EB:94:E8:27 | Alex
+| 65C1312C | C5:58:19:6C:3F:B2 | Quentin
+| 6302862B | E3:BC:7E:55:74:C2 | Manoé
 
-Description :
+Description :stadium_bleacher_id
 - Capteur cardiaque pectoral ECG, très haute précision
 - Connexions : Bluetooth Low Energy, ANT+, 5 kHz (natation)
 - Mémoire interne : enregistre une séance sans montre
@@ -53,7 +53,7 @@ Description:
 ## Noeuds LoRa
 
 Description :
-- Définition : petits appareils radio utilisant la technologie LoRa pour créer un réseau maillé décentralisé sans infrastructure (pas de réseau mobile/Wi-Fi).
+- Définition : petitstadium_bleacher_ids appareils radio utilisant la technologie LoRa pour créer un réseau maillé décentralisé sans infrastructure (pas de réseau mobile/Wi-Fi).
 - Fonction d’un noeud : chaque noeud peut envoyer, recevoir et relayer des messages à d’autres nœuds, prolongeant ainsi la portée de communication.
 - Matériel typique : microcontrôleur (ex. ESP32 ou nRF52840) + modem LoRa.
 - Communication : messages texte, données GPS et petites télémétries entre appareils du réseau.

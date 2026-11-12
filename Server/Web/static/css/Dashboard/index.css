@@ -8,12 +8,6 @@
     flex-direction: column;
     gap: 40px;
 }
-.page-actions
-{
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: -24px;
-}
 .section-head
 {
     display: flex;
@@ -46,10 +40,6 @@
 .grid-supporters
 {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-}
-.grid-bleachers
-{
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 .grid:empty
 {
@@ -141,97 +131,1115 @@
     background-color: var(--brand-orange);
 }
 
-/* Carte de tribune, sur fond noir */
-.bleacher-card
+/* =========================================================================
+    Bandeau du match en cours : équipes, logos, score, date et stade
+   ========================================================================= */
+
+.match-banner
 {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+    padding: 24px 32px;
+    border-radius: 20px;
     background-color: var(--dark-background);
-    border-color: var(--dark-background);
 }
-.bleacher-card *
+.match-banner *
 {
-    color: #FFFFFF;
+    color: var(--dark-text);
 }
-.bleacher-card .name
+.match-team
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.team-logo
+{
+    width: 96px;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo img
+{
+    max-width: 100%;
+    max-height: 100%;
+}
+/* Équipe sans logo connu : pastille avec ses initiales */
+.team-logo.is-initials
+{
+    border-radius: 50%;
+    border: 3px solid var(--dark-border);
+    background-color: var(--dark-surface);
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 700;
+}
+.team-name
 {
     font-family: var(--font-display);
+    font-size: 28px;
     font-weight: 700;
-    font-size: 26px;
     text-transform: uppercase;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
-.badge
+.match-center
 {
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 4px 10px;
-    background-color: var(--brand-orange);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
 }
-.bleacher-card .badge
+.match-score
 {
-    color: #1B1615;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--font-display);
+    font-size: 72px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
-.metrics
+.match-banner .match-score-sep
 {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 18px;
+    color: var(--brand-orange);
 }
-.metric-box
+.match-date
 {
-    background-color: var(--dark-surface);
-    border-radius: var(--radius-small);
-    padding: 12px;
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: center;
 }
-.metric-label
+.match-stadium
 {
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 500;
 }
-.bleacher-card .metric-label
+.match-banner .match-stadium, .match-banner .match-stadium *
 {
     color: var(--dark-muted);
 }
-.metric-box .metric
+@media (prefers-color-scheme: dark)
 {
-    font-size: 32px;
-    margin-top: 4px;
+    .match-banner
+    {
+        border: 1px solid var(--card-border);
+    }
 }
-.bleacher-card .unit
+@media (max-width: 640px)
+{
+    .match-banner
+    {
+        gap: 12px;
+        padding: 20px 16px;
+    }
+    .team-logo
+    {
+        width: 64px;
+        height: 64px;
+    }
+    .team-name
+    {
+        font-size: 18px;
+    }
+    .match-score
+    {
+        font-size: 48px;
+        gap: 8px;
+    }
+    .match-date
+    {
+        font-size: 18px;
+    }
+}
+
+/* Accès à la préparation du match (équipes, joueurs, stade) */
+.match-settings
+{
+    position: absolute;
+    z-index: 2; /* au-dessus des colonnes des équipes, qui le recouvraient en partie */
+    top: 14px;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid var(--dark-border);
+    background-color: var(--dark-surface);
+    transition: border-color .15s, transform .3s;
+}
+.match-settings:hover, .match-settings:focus-visible
+{
+    border-color: var(--brand-orange);
+    transform: rotate(45deg);
+}
+.match-banner .match-settings:hover *
 {
     color: var(--brand-orange);
 }
 
-/* Carte de comparaison */
-.comparison-card
+.match-team, .match-center
 {
-    border-style: dashed;
-    border-width: 2px;
+    position: relative;
+}
+/* Logo et nom lisibles sur la photo du stade */
+.team-logo img
+{
+    filter: drop-shadow(0 2px 10px rgba(0, 0, 0, .55));
+}
+.team-name
+{
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+}
+
+/* =========================================================================
+    Vue du stade du Moustoir : mesures des coins équipés de capteurs
+   ========================================================================= */
+
+.pin-metrics
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.pin-metrics .btn.is-active
+{
+    background-color: var(--brand-orange);
+    border-color: var(--brand-orange);
+}
+.pin-metrics .btn.is-active, .pin-metrics .btn.is-active *
+{
+    color: var(--brand-black);
+}
+/* En haut : titre et choix de la mesure sur une ligne ; en dessous : vue du stade et cartes compactes sur la même hauteur */
+.stadium-plan
+{
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+    grid-template-rows: auto 1fr;
+    gap: 16px 24px;
+}
+.stadium-head
+{
+    grid-column: 1 / 3;
+    grid-row: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 32px;
+}
+.stadium-head h2
+{
+    font-size: 40px;
+    margin-top: 4px;
+}
+.stadium-view
+{
+    grid-column: 1;
+    grid-row: 2;
+    position: relative;
+    border-radius: 20px;
+    background-color: #FFFFFF;
+}
+/* Cartes étirées sur toute la hauteur de la vue du stade */
+.stadium-cards
+{
+    grid-column: 2;
+    grid-row: 2;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 6px;
-    min-height: 120px;
+    gap: 12px;
 }
-.comparison-card .id
+.stadium-cards .corner-card
 {
+    flex: 1 1 0;
+}
+/* Vue du stade : tribunes et pictogrammes en niveaux de gris (image retouchée), pelouse et piste en couleur */
+.stadium-view img
+{
+    display: block;
+    width: 100%;
+    border-radius: 20px;
+}
+
+/* Colonne lumineuse au coin équipé, valeur au sommet */
+.pin
+{
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+.pin-base
+{
+    position: absolute;
+    left: -13px;
+    top: -7px;
+    width: 26px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: rgba(234, 103, 11, .45);
+    border: 2px solid var(--brand-orange);
+}
+.pin-column
+{
+    position: absolute;
+    left: -7px;
+    bottom: 0;
+    width: 14px;
+    border-radius: 7px 7px 2px 2px;
+    background: linear-gradient(to top, #EA670B, rgba(255, 170, 90, .75));
+    box-shadow: 0 0 18px rgba(234, 103, 11, .7);
+    transition: height .6s ease;
+}
+.pin-tag
+{
+    position: absolute;
+    left: 0;
+    transform: translate(-50%, -100%);
+    white-space: nowrap;
+    padding: 1px 10px;
+    border-radius: 10px;
+    border: 2px solid var(--brand-orange);
+    background-color: var(--brand-black);
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    transition: top .6s ease;
+}
+.pin-tag, .pin-tag *
+{
+    color: #FFFFFF;
+}
+.pin-tag b
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    vertical-align: 3px;
+    border-radius: 50%;
+    background-color: var(--brand-orange);
+    font-size: 13px;
+}
+.pin-tag b
+{
+    color: var(--brand-black);
+}
+.pin-tag small
+{
+    margin-left: 3px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+}
+.pin.is-empty .pin-column
+{
+    opacity: .35;
+}
+
+/* Cartes des coins */
+.corner-card
+{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+}
+a.corner-card[href]:hover
+{
+    border-color: var(--brand-orange);
+}
+.corner-head > div
+{
+    min-width: 0;
+}
+.corner-head
+{
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.corner-number
+{
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--brand-orange);
+    font-size: 14px;
+    font-weight: 700;
+}
+.corner-card .corner-number
+{
+    color: var(--brand-black);
+}
+.corner-card h3
+{
+    font-size: 23px;
+    line-height: 1.1;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+.corner-stands, .corner-label, .corner-unit
+{
+    color: var(--text-muted);
+}
+/* Emplacement sur une ligne, tronqué si la carte est étroite (texte complet au survol) */
+.corner-stands
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
+/* Trois colonnes fixes communes à toutes les cartes (Acoustique, Vibration, Température) :
+   chaque mesure reste dans sa colonne, alignée d'une carte à l'autre */
+.corner-values
+{
+    display: grid;
+    grid-template-columns: repeat(3, 76px);
+    gap: 6px;
+}
+.corner-value[data-kind="acoustic"]      { grid-column: 1; }
+.corner-value[data-kind="accelerometer"] { grid-column: 2; }
+.corner-value[data-kind="temperature"]   { grid-column: 3; }
+.corner-value
+{
+    min-width: 0;
+    padding: 8px 8px;
+    border-radius: var(--radius-small);
+    background-color: var(--card-soft-background);
+}
+.corner-label
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+.corner-value [data-metric]
+{
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+.corner-unit
+{
+    margin-left: 3px;
+    font-size: 13px;
+}
+@media (max-width: 1000px)
+{
+    .stadium-plan
+    {
+        grid-template-columns: 1fr;
+    }
+    .stadium-head, .stadium-view, .stadium-cards
+    {
+        grid-column: 1;
+        grid-row: auto;
+    }
+    .stadium-head
+    {
+        order: -2;
+    }
+    .stadium-view
+    {
+        order: -1;
+        max-width: 640px;
+        width: 100%;
+        justify-self: center;
+    }
+}
+
+/* =========================================================================
+    Bandeau vertical à gauche de la page (visuel du plan d'installation)
+   ========================================================================= */
+
+/* Le visuel est affiché en entier sur la hauteur de la fenêtre : sa largeur suit ses proportions (586 × 941) */
+:root
+{
+    --side-art-height: calc(100vh - var(--topbar-height, 76px));
+    --side-art-width: calc(var(--side-art-height) * 586 / 941);
+}
+.side-art
+{
+    position: fixed;
+    top: var(--topbar-height, 76px);
+    left: 0;
+    width: var(--side-art-width);
+    height: var(--side-art-height);
+    pointer-events: none;
+}
+/* Bandeau fermé : bloc noir de même taille, le contenu de la page ne bouge pas */
+.side-art.is-blanked
+{
+    background-color: #000000;
+}
+.side-art.is-blanked .side-art-image, .side-art.is-blanked .side-art-logos
+{
+    visibility: hidden;
+}
+.side-art-toggle
+{
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, .45);
+    color: #FFFFFF;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+.side-art.is-blanked .side-art-toggle
+{
+    background-color: var(--dark-surface, #2A2422);
+}
+.side-art-image
+{
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+/* Logos placés comme sur le plan d'installation (positions et tailles reprises du PDF, en % du visuel) */
+.side-art-logos img
+{
+    position: absolute;
+    display: block;
+    height: auto;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .35));
+}
+.side-art-club
+{
+    left: 28.4%;
+    top: 4.6%;
+    width: 23.5%;
+}
+.side-art-lab
+{
+    left: 7.4%;
+    top: 26.8%;
+    width: 34.1%;
+}
+.side-art-ubs
+{
+    left: 19.6%;
+    top: 38.8%;
+    width: 30.4%;
+}
+.page.with-side-art
+{
+    margin-left: var(--side-art-width);
+    margin-right: auto;
+}
+@media (max-width: 1100px)
+{
+    .side-art
+    {
+        display: none;
+    }
+    .page.with-side-art
+    {
+        margin-left: auto;
+    }
+}
+
+/* =========================================================================
+    Rythme cardiaque des supporters : cartes en direct (A) et frise du match (B)
+   ========================================================================= */
+
+.hr-options
+{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 20px;
+}
+.hr-option
+{
+    margin-top: 8px;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: .12em;
     text-transform: uppercase;
     color: var(--brand-orange-dark);
 }
-.comparison-card .name
+
+/* Option A : cartes */
+.hr-cards
 {
-    font-family: var(--font-display);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+.hr-card
+{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+}
+.hr-card:hover
+{
+    border-color: var(--brand-orange);
+}
+.hr-card-head
+{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hr-avatar
+{
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
     font-weight: 700;
-    font-size: 26px;
+}
+.hr-card .hr-avatar
+{
+    color: var(--brand-black);
+}
+.hr-who
+{
+    min-width: 0;
+}
+.hr-name
+{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
     text-transform: uppercase;
 }
-
-@media (prefers-color-scheme: dark)
+.hr-zone
 {
-    .bleacher-card
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+/* Cœur battant au rythme mesuré (durée d'animation = 60 / bpm) */
+.hr-bpm-row
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.hr-heart
+{
+    flex: none;
+    width: 28px;
+    margin-left: auto;
+    fill: var(--brand-orange);
+    animation: hr-beat 1s infinite;
+    animation-play-state: paused;
+}
+@keyframes hr-beat
+{
+    0%, 100% { transform: scale(1); }
+    15%      { transform: scale(1.3); }
+    30%      { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce)
+{
+    .hr-heart
     {
-        border-color: var(--card-border);
+        animation: none;
     }
+}
+.hr-bpm
+{
+    font-family: var(--font-display);
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.hr-bpm small
+{
+    margin-left: 4px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+.hr-spark
+{
+    width: 100%;
+    height: 44px;
+}
+.hr-gauge
+{
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--card-soft-background);
+}
+.hr-gauge span
+{
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    transition: width .6s ease;
+}
+
+/* Option B : frise */
+.hr-timeline
+{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.hr-row
+{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.hr-row-name
+{
+    flex: none;
+    width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.hr-cells
+{
+    flex: 1;
+    display: flex;
+    gap: 1px;
+}
+.hr-cells i
+{
+    flex: 1;
+    height: 26px;
+    border-radius: 2px;
+    background-color: var(--card-soft-background);
+}
+/* Axe de la frise : mêmes colonnes que les lignes, repère posé au début de sa case */
+.hr-axis
+{
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.hr-axis .hr-cells i
+{
+    position: relative;
+    height: 18px;
+    background: none;
+}
+.hr-axis .hr-cells i span
+{
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding-left: 3px;
+    border-left: 1px solid var(--text-muted);
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.hr-legend
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-left: 92px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.hr-legend b
+{
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 2px;
+}
+.hr-legend-empty
+{
+    background-color: var(--card-soft-background);
+    border: 1px solid var(--card-border);
+}
+
+/* =========================================================================
+    Bandeau du match fixé sous la barre du haut, réduit quand la page défile (cf. _updateMatchBanner())
+   ========================================================================= */
+
+.match-banner
+{
+    position: sticky;
+    top: calc(var(--topbar-height, 76px) + 12px);
+    z-index: 30;
+    overflow: visible;
+}
+/* Pas de recalage automatique du défilement par le navigateur quand le bandeau change de taille */
+html:has(.match-banner)
+{
+    overflow-anchor: none;
+}
+.match-banner.is-stuck
+{
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
+}
+/* Bande pleine entre la barre du haut et le bandeau : masque le contenu qui passe dessous */
+.match-banner::before
+{
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 14px;
+    background-color: var(--body-background);
+}
+.match-banner.is-stuck .match-team
+{
+    flex-direction: row;
+    justify-content: center;
+}
+.match-banner.is-stuck .team-logo
+{
+    width: 44px;
+    height: 44px;
+}
+.match-banner.is-stuck .team-logo.is-initials
+{
+    font-size: 18px;
+}
+.match-banner.is-stuck .team-name
+{
+    font-size: 22px;
+}
+.match-banner.is-stuck .match-score
+{
+    font-size: 40px;
+}
+.match-banner.is-stuck .match-date
+{
+    font-size: 15px;
+}
+.match-banner.is-stuck .match-stadium
+{
+    display: none;
+}
+.match-banner.is-stuck .match-settings
+{
+    top: 50%;
+    width: 40px;
+    height: 40px;
+    transform: translateY(-50%);
+}
+.match-banner.is-stuck .match-settings:hover
+{
+    transform: translateY(-50%) rotate(45deg);
+}
+
+/* Bouton « Tout remettre à zéro » de la vue du stade, à droite de la ligne de titre */
+.stadium-head .stadium-reset
+{
+    order: 3;
+    margin-left: auto;
+}
+.corner-value [data-metric]
+{
+    font-size: 22px;
+}
+
+/* Cartes compactes : nom en haut, valeurs dessous sur toute la largeur, en trois colonnes alignées d'une carte à l'autre */
+.stadium-cards .corner-card
+{
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 8px;
+}
+.stadium-cards .corner-values
+{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* Ligne de titre de la vue du stade : titre, choix de la mesure et remise à zéro sur une seule ligne */
+.stadium-head
+{
+    column-gap: 16px;
+}
+.stadium-head .stadium-reset
+{
+    padding: 0 12px;
+    font-size: 14px;
+    white-space: nowrap;
+}
+/* La hauteur de la ligne est donnée par l'image du stade ; la colonne des cartes s'y cale (sans l'agrandir) */
+.stadium-view
+{
+    align-self: start;
+}
+.stadium-cards
+{
+    height: 0;
+    min-height: 100%;
+    gap: 8px;
+}
+.stadium-cards .corner-card
+{
+    padding: 8px 12px;
+    gap: 4px;
+    min-height: 0;
+}
+.stadium-cards .corner-value
+{
+    padding: 4px 8px;
+}
+@media (max-width: 1000px)
+{
+    .stadium-cards
+    {
+        height: auto;
+    }
+}
+
+/* Valeurs des cartes compactes calées à droite, en retrait par rapport au nom de la tribune ;
+   trois colonnes de même largeur dans toutes les cartes : alignement conservé d'une carte à l'autre */
+.stadium-cards .corner-values
+{
+    justify-self: end;
+    grid-template-columns: repeat(3, 92px);
+}
+
+/* Repère de la frise : heure, minute de match en dessous */
+.hr-axis .hr-cells i
+{
+    height: 34px;
+}
+.hr-axis .hr-cells i span
+{
+    display: flex;
+    flex-direction: column;
+}
+.hr-axis .hr-cells i span b
+{
+    font-weight: 600;
+}
+.hr-axis .hr-cells i span small
+{
+    font-size: 11px;
+    color: var(--brand-orange-dark);
+}
+.hr-axis .hr-cells i span
+{
+    font-style: normal;
+}
+/* Frise sur 3 heures : cases de largeur fixe séparées, défilement horizontal, noms fixes à gauche */
+.hr-timeline
+{
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+.hr-row, .hr-axis
+{
+    width: max-content;
+}
+.hr-cells
+{
+    flex: none;
+    gap: 2px;
+}
+.hr-cells i
+{
+    flex: none;
+    width: 9px;
+}
+.hr-row-name, .hr-axis .hr-row-name
+{
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    background-color: var(--body-background);
+}
+/* Bulle d'information de la frise */
+.hr-tooltip
+{
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--brand-orange);
+    background-color: var(--brand-black);
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.hr-timeline
+{
+    margin-top: 8px;
+}
+
+/* Bouton de vue de la frise */
+.hr-timeline-head
+{
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+.hr-view-toggle
+{
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+}
+/* Vue compacte : 3 heures sur la largeur, cases sans espace, pas de défilement */
+.hr-timeline.is-compact
+{
+    overflow-x: hidden;
+}
+.hr-timeline.is-compact .hr-row, .hr-timeline.is-compact .hr-axis
+{
+    width: auto;
+}
+.hr-timeline.is-compact .hr-cells
+{
+    flex: 1;
+    gap: 0;
+}
+.hr-timeline.is-compact .hr-cells i
+{
+    flex: 1;
+    width: auto;
+    border-radius: 0;
+}
+
+/* Évènements du match sur la frise : repères au-dessus des supporters, trait sur les cases de leur minute */
+.hr-events
+{
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    width: max-content;
+    font-size: 12px;
+}
+.hr-timeline.is-compact .hr-events
+{
+    width: auto;
+}
+.hr-events .hr-row-name
+{
+    color: var(--text-muted);
+    font-size: 12px;
+}
+.hr-events .hr-cells i
+{
+    position: relative;
+    height: 22px;
+    background: none;
+}
+.hr-events .hr-cells i span
+{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    padding: 0 0 2px 4px;
+    border-left: 2px solid #F5F5F5;
+    white-space: nowrap;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.hr-events .hr-cells i span.is-right
+{
+    left: auto;
+    right: 0;
+    padding: 0 4px 2px 0;
+    border-left: none;
+    border-right: 2px solid #F5F5F5;
+}
+.hr-cells i.has-event
+{
+    box-shadow: inset 2px 0 0 #F5F5F5;
+}
+.hr-tooltip
+{
+    white-space: pre;
+}
+
+/* Barre de défilement de la frise aux couleurs du club */
+.hr-timeline
+{
+    scrollbar-color: var(--brand-orange) var(--card-soft-background);
+    scrollbar-width: thin;
+}
+.hr-timeline::-webkit-scrollbar
+{
+    height: 8px;
+}
+.hr-timeline::-webkit-scrollbar-track
+{
+    border-radius: 4px;
+    background-color: var(--card-soft-background);
+}
+.hr-timeline::-webkit-scrollbar-thumb
+{
+    border-radius: 4px;
+    background-color: var(--brand-orange);
+}
+.hr-timeline::-webkit-scrollbar-thumb:hover
+{
+    background-color: var(--brand-orange-hover);
 }
