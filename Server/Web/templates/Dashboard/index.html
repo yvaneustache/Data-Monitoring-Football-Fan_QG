@@ -78,7 +78,7 @@
                         </div>
                     </div>
                     <div class="stadium-view">
-                        <img src="{{ url_for('static', filename='images/moustoir-3d.webp') }}" alt="Vue du stade du Moustoir avec les tribunes Jean Floc'h, Lorient Agglomération, B&B Hôtels et Crédit Mutuel de Bretagne">
+                        <img src="{{ url_for('static', filename='images/plan-stade.webp') }}" alt="Vue du stade du Moustoir avec les tribunes Jean Floc'h, Lorient Agglomération, B&B Hôtels et Crédit Mutuel de Bretagne">
                         {% for corner in corners %}
                         <div class="pin" style="left: {{ corner.x }}%; top: {{ corner.y }}%" data-pin-metrics="{{ corner.metrics | join(' ') }}" {% if corner.id %}data-pin-id="{{ corner.id }}"{% endif %}>
                             <span class="pin-base"></span>

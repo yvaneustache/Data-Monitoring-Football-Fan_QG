@@ -591,15 +591,27 @@ a.corner-card[href]:hover
 {
     --side-art-height: calc(100vh - var(--topbar-height, 76px));
     --side-art-width: calc(var(--side-art-height) * 586 / 941);
+    /* Place libre à gauche de la colonne centrale (alignée sur la colonne des courbes des tribunes) */
+    --side-art-space: max(0px, (100vw - 1440px) / 2);
 }
+/* Bandeau limité à la place libre : le visuel garde sa taille et est coupé à droite */
 .side-art
 {
     position: fixed;
     top: var(--topbar-height, 76px);
     left: 0;
-    width: var(--side-art-width);
+    width: min(var(--side-art-width), var(--side-art-space));
     height: var(--side-art-height);
+    overflow: hidden;
     pointer-events: none;
+}
+.side-art-logos
+{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--side-art-width);
+    height: 100%;
 }
 /* Bandeau fermé : bloc noir de même taille, le contenu de la page ne bouge pas */
 .side-art.is-blanked
@@ -634,7 +646,7 @@ a.corner-card[href]:hover
 .side-art-image
 {
     display: block;
-    width: 100%;
+    width: var(--side-art-width);
     height: 100%;
 }
 /* Logos placés comme sur le plan d'installation (positions et tailles reprises du PDF, en % du visuel) */
@@ -663,20 +675,19 @@ a.corner-card[href]:hover
     top: 38.8%;
     width: 30.4%;
 }
+/* Colonne centrale : même largeur et même place que les pages des tribunes (courbes + évènements),
+   page de 1440 px centrée : marges identiques à gauche et à droite */
 .page.with-side-art
 {
-    margin-left: var(--side-art-width);
+    margin-left: auto;
     margin-right: auto;
 }
-@media (max-width: 1100px)
+/* Moins de 60 px libres à gauche de la colonne centrale : pas de bandeau */
+@media (max-width: 1560px)
 {
     .side-art
     {
         display: none;
-    }
-    .page.with-side-art
-    {
-        margin-left: auto;
     }
 }
 

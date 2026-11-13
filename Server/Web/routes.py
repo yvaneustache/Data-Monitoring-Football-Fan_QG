@@ -36,7 +36,7 @@ logger = Logger("Serveur/Routes")
 
 ##
 # @brief Points du stade du Moustoir équipés de capteurs (cf. plan d'installation), placés sur la vue
-#        static/images/moustoir-3d.webp : nom de la tribune (stadiumBleacher.json), titre affiché, emplacement,
+#        static/images/plan-stade.webp (PLAN_STADE.png recadré au format de l'ancienne vue, 624 × 620) : nom de la tribune (stadiumBleacher.json), titre affiché, emplacement,
 #        position sur l'image (en % de la largeur et de la hauteur), mesures prises.
 #
 # Sur le plan, Nord = tribune Lorient Agglomération et Sud = tribune B&B Hôtels ; Est = côté Jean Floc'h,
@@ -46,11 +46,11 @@ logger = Logger("Serveur/Routes")
 # modifiable dans /event/preparation) ; "metrics" ci-dessous ne sert que si la tribune n'est pas déclarée.
 ##
 STADIUM_POINTS = [
-    {"name": "Nord-Est",  "title": "Nord-Est",  "place": "Lorient Agglomération · Jean Floc'h",    "x": 45.8, "y": 30.6, "metrics": ["acoustic", "accelerometer"]},
-    {"name": "Sud-Est",   "title": "Sud-Est",   "place": "Jean Floc'h · B&B Hôtels",               "x": 85.6, "y": 54.5, "metrics": ["acoustic", "accelerometer"]},
-    {"name": "Sud-Ouest", "title": "Sud-Ouest", "place": "B&B Hôtels · Crédit Mutuel de Bretagne", "x": 53.5, "y": 72.6, "metrics": ["acoustic", "accelerometer"]},
-    {"name": "Sud",       "title": "Sud",       "place": "Tribune B&B Hôtels",                     "x": 74.5, "y": 65.3, "metrics": ["temperature"]},
-    {"name": "Exterieur", "title": "Extérieur", "place": "Rue Jean Le Coutaller",                  "x": 23.2, "y": 85.2, "metrics": ["temperature"]},
+    {"name": "Nord-Est",  "title": "Nord-Est",  "place": "Lorient Agglomération · Jean Floc'h",    "x": 41.6, "y": 28.5, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud-Est",   "title": "Sud-Est",   "place": "Jean Floc'h · B&B Hôtels",               "x": 84.7, "y": 43.6, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud-Ouest", "title": "Sud-Ouest", "place": "B&B Hôtels · Crédit Mutuel de Bretagne", "x": 48.9, "y": 67.8, "metrics": ["acoustic", "accelerometer"]},
+    {"name": "Sud",       "title": "Sud",       "place": "Tribune B&B Hôtels",                     "x": 76.7, "y": 61.7, "metrics": ["temperature"]},
+    {"name": "Exterieur", "title": "Extérieur", "place": "Rue Jean Le Coutaller",                  "x": 25.3, "y": 78.5, "metrics": ["temperature"]},
 ]
 
 # =============================================================================
