@@ -206,6 +206,9 @@ export class HeartRateBoard
             supporter.current = points[points.length - 1][1];
 
         supporter.history.push(...points);
+        // Envoi arrivé en retard (placé avant des mesures déjà reçues) : historique remis dans l'ordre chronologique
+        if (supporter.history.length > points.length && supporter.history[supporter.history.length - points.length - 1][0] > points[0][0])
+            supporter.history.sort((a, b) => a[0] - b[0]);
 
         const limit = Date.now() - HISTORY_SPAN;
         while (supporter.history.length && supporter.history[0][0] < limit)

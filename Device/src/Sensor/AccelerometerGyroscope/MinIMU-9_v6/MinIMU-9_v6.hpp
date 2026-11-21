@@ -8,12 +8,14 @@
  * Format JSON produit:
  * @code{.json}
  * {
- *   "t" : "accelerometer_gyroscope",
- *   "n" : "MinUMI-9 v6",
+ *   "t" : 3,
  *   "id": <int>,
- *   "a" : [<float>],
+ *   "s" : <int, compteur d'envois de 0 à 999>,
+ *   "a" : [<float>]
  * }
- * @endcode
+ * @endcode *
+ * Le nom du capteur ("n") n'est pas envoyé (inutile au serveur : le type est dans "t") ; "s" est le compteur
+ * d'envois (0 à 999), ajouté à l'envoi (cf. main.cpp), qui permet au serveur de placer chaque envoi dans son créneau et d'ignorer les doublons.
  *
  * Chaque valeur de "a" est le maximum de |‖a‖ - g| (accélération dynamique, en m/s²) observé sur une fenêtre d'acquisition de ACQUISITION_TIME ms,
  * g étant la norme mesurée au repos lors de la calibration au démarrage.

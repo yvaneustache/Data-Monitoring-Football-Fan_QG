@@ -64,7 +64,6 @@ std::string DS18B20::formatData(DS18B20Data & data, int stadiumBleacherId)
 
     // Construction de l'objet JSON avec les données du capteur
     json["t"] = getMQTTTopic(SensorType::TEMPERATURE);
-    json["n"] = DS18B20::name;
     json["id"] = stadiumBleacherId;
     json["p"] = ACQUISITION_TIME / 1000; // Période entre deux mesures (s), pour l'horodatage côté serveur
     // Buffer circulaire envoyé dans l'ordre chronologique : de la mesure la plus ancienne

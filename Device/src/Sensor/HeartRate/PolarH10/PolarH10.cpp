@@ -82,7 +82,6 @@ std::string PolarH10::formatData(PolarH10Data & data, int supporterId)
 
     // Construction de l'objet JSON avec les données du capteur
     json["t"] = getMQTTTopic(SensorType::HEART_RATE);
-    json["n"] = PolarH10::name;
     json["id"] = supporterId;
     // Buffer circulaire envoyé dans l'ordre chronologique : formatData() est appelé après
     // l'incrément de l'index, la case heartRateIndex contient donc la mesure la plus ancienne

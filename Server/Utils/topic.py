@@ -85,8 +85,8 @@ def jsonToFieldsPoints(data):
     listFields = {}
 
     for key, value in data.items():
-        # On ignore le champ "n" et "t"
-        if key == "n" or key == "t":
+        # On ignore les champs "n" (nom du capteur), "t" (type) et "s" (compteur d'envois)
+        if key in ("n", "t", "s"):
             continue
 
         if isinstance(value, list):

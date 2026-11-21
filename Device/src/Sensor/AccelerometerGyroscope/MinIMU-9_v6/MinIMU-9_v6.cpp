@@ -63,7 +63,6 @@ std::string MinIMU_9_v6::formatData(MinIMU_9_v6Data & data, int stadiumBleacherI
 
     // Construction de l'objet JSON avec les données du capteur
     json["t"] = getMQTTTopic(SensorType::ACCELEROMETER_GYROSCOPE);
-    json["n"] = MinIMU_9_v6::name;
     json["id"] = stadiumBleacherId;
     // Buffer circulaire envoyé dans l'ordre chronologique : de la mesure la plus ancienne
     // (case suivant la dernière écrite) à la plus récente (dernière case écrite)

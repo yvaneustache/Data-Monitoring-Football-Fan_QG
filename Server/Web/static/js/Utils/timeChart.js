@@ -421,7 +421,7 @@ export class TimeChart
                     },
                 },
             },
-            plugins: [this._recentPlugin(), this._zeroPlugin(), this._eventPlugin(), this._playheadPlugin(), { id: "onRender", afterRender: () => { if (options.onRender) options.onRender(this); } }],
+            plugins: [this._recentPlugin(), this._zeroPlugin(), this._eventPlugin(), this._playheadPlugin(), { id: "onRender", afterRender: () => { if (options.onRender) options.onRender(this); } }, { id: "onYRange", afterUpdate: () => { if (this.autoY && this.onYRange) this.onYRange(); } }],
         });
 
         for (const dataset of options.datasets || [])
@@ -507,8 +507,24 @@ export class TimeChart
         if (!dataset || !points || points.length === 0)
             return ;
 
+        // Points rangés par heure : un point plus ancien que le dernier affiché (paquet arrivé en retard)
+        // est inséré à sa place, sinon la courbe reviendrait en arrière
         for (const [x, y] of points)
-            dataset.data.push({ x, y });
+        {
+            const data = dataset.data;
+            if (!data.length || data[data.length - 1].x < x)
+            {
+                data.push({ x, y });
+                continue;
+            }
+            let index = data.length;
+            while (index > 0 && data[index - 1].x > x)
+                index--;
+            if (index > 0 && data[index - 1].x === x)
+                data[index - 1].y = y;
+            else
+                data.splice(index, 0, { x, y });
+        }
 
         // Limite mémoire : 4 h d'historique
         const limit = Date.now() - MAX_SPAN;
@@ -516,6 +532,25 @@ export class TimeChart
             dataset.data.shift();
 
         this._extendNavigator(points);
+        this.chart.update("none");
+    }
+
+    /**
+     * @brief Échelle verticale automatique : ajustée aux valeurs des courbes visibles dans la fenêtre de temps affichée
+     *        (recalculée à chaque déplacement, zoom, lissage ou courbe masquée), avec une marge de 5 %.
+     *        Une échelle saisie (setYRange()) la remplace ; resetYAxis() y revient.
+     */
+    setAutoY()
+    {
+        const y = this.chart.options.scales.y;
+        this.autoYEnabled = true;
+        this.autoY        = true;
+        y.min             = undefined;
+        y.max             = undefined;
+        y.suggestedMin    = undefined;
+        y.suggestedMax    = undefined;
+        y.grace           = "5%";
+        y.ticks.stepSize  = undefined;
         this.chart.update("none");
     }
 
@@ -592,16 +627,22 @@ export class TimeChart
         if (!this.initialY)
             this.initialY = { min: this.chart.options.scales.y.min, max: this.chart.options.scales.y.max };
 
+        this.autoY = false;
         this.chart.options.scales.y.min = min;
         this.chart.options.scales.y.max = max;
         this.chart.update("none");
     }
 
     /**
-     * @brief Revient à l'échelle automatique (d'après les données affichées), puis la fige.
+     * @brief Revient à l'échelle automatique : ajustée aux valeurs (cf. setAutoY()), ou d'après les données affichées puis figée.
      */
     resetYAxis()
     {
+        if (this.autoYEnabled)
+        {
+            this.setAutoY();
+            return ;
+        }
         if (this.initialY)
         {
             this.chart.options.scales.y.min = this.initialY.min;

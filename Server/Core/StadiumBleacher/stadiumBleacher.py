@@ -88,11 +88,11 @@ class StadiumBleacher:
     ##
     def addData(self, data, dataType):
         if dataType == "accelerometer_gyroscope":
-            return self.accelerometer.addData(data["a"])
+            return self.accelerometer.addData(data["a"], sequence=data.get("s"))
         elif dataType == "acoustic":
-            return self.acoustic.addData(data["a"])
+            return self.acoustic.addData(data["a"], sequence=data.get("s"))
         elif dataType == "temperature":
-            return self.temperature.addData(data["a"], data.get("p"))
+            return self.temperature.addData(data["a"], data.get("p"), data.get("s"))
         else:
             # Type inconnu : logué mais non bloquant
             logger.warning(f"[StadiumBleacher] Type de données inconnu ignoré : '{dataType}'")

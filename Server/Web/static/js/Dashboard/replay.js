@@ -22,10 +22,11 @@ import { MatchVideo } from "../Utils/matchVideo.js";
 // ============================================================================
 
 const CONFIGURATIONS = {
-    accelerometer: { unit: "m/s²",  axis: { suggestedMin: 0, suggestedMax: 1 } },
-    acoustic:      { unit: "dB(A)", axis: { suggestedMin: 30, suggestedMax: 90 } },
-    temperature:   { unit: "°C",    axis: { suggestedMin: 10, suggestedMax: 30 } },
-    heart_rate:    { unit: "bpm",   axis: { min: 40, max: 200, step: 20 } },
+// Échelle verticale automatique, ajustée aux valeurs affichées (cf. TimeChart.setAutoY())
+    accelerometer: { unit: "m/s²",  axis: {} },
+    acoustic:      { unit: "dB(A)", axis: {} },
+    temperature:   { unit: "°C",    axis: {} },
+    heart_rate:    { unit: "bpm",   axis: {} },
 };
 
 const MAX_SPAN = 4 * 3600 * 1000; ///< @brief Fenêtre maximale affichée (ms).
@@ -146,9 +147,8 @@ function _init(replay)
             curves.push({ chart: chart, key: String(entry.id), dataType: dataType, history: entry.history, name: entry.name, reference: _median(entry.history.map(([, v]) => v)) });
         }
 
-        // Échelle des mesures brutes conservée quand la moyenne glissante change
-        if (series.length)
-            chart.lockYAxis();
+        // Échelle ajustée aux valeurs de la fenêtre affichée (mesures, lissage, courbes visibles)
+        chart.setAutoY();
 
         const scaleForm = document.querySelector(`[data-scale="${dataType}"]`);
         // Lissage propre à la courbe (méthode et largeur)
@@ -186,7 +186,6 @@ function _init(replay)
 
                     chart.setUnit(hrMode === "delta" ? "Δ bpm" : "bpm");
                     chart.setZeroLine(hrMode === "delta");
-                    chart.initialY = hrMode === "delta" ? { min: undefined, max: undefined } : { min: config.axis.min, max: config.axis.max };
                     recompute("heart_rate");
                     scaleForm.querySelector("[data-scale-auto]").click();
                 });
@@ -372,6 +371,13 @@ function _bindScale(chart, form, onThreshold)
         chart.resetYAxis();
         fill();
     });
+
+    // Échelle automatique : champs mis à jour avec les bornes recalculées (sauf pendant la saisie)
+    chart.onYRange = () =>
+    {
+        if (document.activeElement !== minInput && document.activeElement !== maxInput)
+            fill();
+    };
 
     fill();
 }

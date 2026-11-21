@@ -12,12 +12,14 @@
  * Format JSON produit:
  * @code{.json}
  * {
- *   "t": "acoustic",
- *   "n": "INMP441",
+ *   "t": 4,
  *   "id": <int>,
- *   "db": [<float>]
+ *   "s": <int, compteur d'envois de 0 à 999>,
+ *   "a": [<float>]
  * }
- * @endcode
+ * @endcode *
+ * Le nom du capteur ("n") n'est pas envoyé (inutile au serveur : le type est dans "t") ; "s" est le compteur
+ * d'envois (0 à 999), ajouté à l'envoi (cf. main.cpp), qui permet au serveur de placer chaque envoi dans son créneau et d'ignorer les doublons.
  */
 
 #ifndef _INMP441_HPP_

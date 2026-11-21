@@ -84,7 +84,7 @@ class Supporter:
     ##
     def addData(self, data, dataType):
         if dataType == "heart_rate":
-            return self.heartRate.addData(data["hr"])
+            return self.heartRate.addData(data["hr"], sequence=data.get("s"))
         else:
             # Type inconnu : logué mais non bloquant
             logger.warning(f"[Supporter] Type de données inconnu ignoré : '{dataType}'")

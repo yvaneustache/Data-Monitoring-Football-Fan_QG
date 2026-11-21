@@ -12,7 +12,10 @@
 # =============================================================================
 
 source "$(dirname "${BASH_SOURCE[0]}")/out.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/../.env"
+
+# Seule MESHTASTIC_KEY est utilisée ici : elle est lue sans exécuter le .env avec "source", car bash interprète
+# les valeurs avec espaces ou parenthèses non protégées du .env (ex : APP, INFLUXDB_BUCKET, INFLUXDB_PASSWORD)
+MESHTASTIC_KEY="$(sed -n -E 's/^MESHTASTIC_KEY=//p' "$(dirname "${BASH_SOURCE[0]}")/../.env" | head -n 1 | tr -d '\r' | sed -E "s/^(['\"])(.*)\1\$/\2/")"
 
 # =============================================================================
 #  Code de sortie

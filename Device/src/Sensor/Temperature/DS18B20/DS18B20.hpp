@@ -16,8 +16,8 @@
  * @code{.json}
  * {
  *   "t" : 6,
- *   "n" : "DS18B20",
  *   "id": <int>,
+ *   "s" : <int, compteur d'envois de 0 à 999>,
  *   "p" : <int, période entre deux mesures en secondes>,
  *   "a" : [<float en °C | null>]
  * }

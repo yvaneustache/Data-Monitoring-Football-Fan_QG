@@ -8,12 +8,14 @@
  * Format JSON produit:
  * @code{.json}
  * {
- *   "t": "heart_rate",
- *   "n": "PolarH10",
+ *   "t": 2,
  *   "id": <int>,
+ *   "s": <int, compteur d'envois de 0 à 999>,
  *   "hr": [<int>]
  * }
- * @endcode
+ * @endcode *
+ * Le nom du capteur ("n") n'est pas envoyé (inutile au serveur : le type est dans "t") ; "s" est le compteur
+ * d'envois (0 à 999), ajouté à l'envoi (cf. main.cpp), qui permet au serveur de placer chaque envoi dans son créneau et d'ignorer les doublons.
  */
 
 #ifndef _POLARH10_HPP_

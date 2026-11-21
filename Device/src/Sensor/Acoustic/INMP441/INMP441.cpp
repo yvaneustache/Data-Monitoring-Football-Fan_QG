@@ -101,7 +101,6 @@ std::string INMP441::formatData(INMP441Data & data, int stadiumBleacherId)
 
     // Construction de l'objet JSON avec les données du capteur
     json["t"] = getMQTTTopic(SensorType::ACOUSTIC);
-    json["n"] = INMP441::name;
     json["id"] = stadiumBleacherId;
     // Buffer circulaire envoyé dans l'ordre chronologique : de la mesure la plus ancienne
     // (case suivant la dernière écrite) à la plus récente (dernière case écrite)

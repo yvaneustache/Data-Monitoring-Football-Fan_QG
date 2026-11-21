@@ -51,6 +51,7 @@ Sensor * sensor           = nullptr; ///< @brief Pointeur vers le capteur actif.
 UARTManager * uartManager = nullptr; ///< @brief Pointeur vers le gestionnaire UART externe. Initialisé dans setup().
 LEDManager * ledManager = nullptr;   ///< @brief Pointeur vers le gestionnaire LED.
 unsigned long lastSendMs  = 0;       ///< @brief Temps du dernier envoi de données
+unsigned int acquisitions = 0;       ///< @brief Nombre d'acquisitions depuis le dernier envoi
 Logger * logger           = nullptr; ///< @brief Logger qui écrit les logs dans un fichier
 
 // ============================================================================
@@ -137,20 +138,35 @@ void loop()
 
     // Mise à jour du capteur
     sensor->update();
+    acquisitions++;
 
     // Mise à jour du temps
     unsigned long now = millis();
 
-    // Si l’intervalle de temps est écoulé, on prépare et on envoie la trame
-    if (now - lastSendMs >= DUTY_CYCLE_TIME)
+    // Envoi après NB_VALUE_FOR_SENSOR nouvelles acquisitions (toutes les mesures de la trame sont nouvelles : une trame
+    // ne répète pas la dernière mesure de la précédente quand une acquisition dure un peu plus d'une seconde), et au
+    // plus un envoi toutes les DUTY_CYCLE_TIME ms (duty cycle)
+    if (acquisitions >= NB_VALUE_FOR_SENSOR && now - lastSendMs >= DUTY_CYCLE_TIME)
     {
-        lastSendMs = now; 
+        lastSendMs   = now;
+        acquisitions = 0;
 
         // Vérifie la connexion du capteur
         if (sensor->isConnected())
         {
             // Récupération des données
             std::string dataString = sensor->getSensorData();
+
+            // Compteur d'envois "s" ajouté aux trames de données (pas à la trame système, "t" = 1), de 0 à 999 :
+            // le serveur place chaque envoi dans son créneau (paquet retardé ou perdu) et ignore les doublons
+            static uint16_t sequence = 0;
+            size_t closing = dataString.rfind('}');
+            if (dataString.rfind("{\"t\":1,", 0) != 0 && closing != std::string::npos)
+            {
+                dataString.insert(closing, ",\"s\":" + std::to_string(sequence));
+                sequence = (sequence + 1) % 1000;
+            }
+
             size_t size = dataString.length();
 
             if (size != 0)
