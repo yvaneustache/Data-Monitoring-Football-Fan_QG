@@ -206,6 +206,18 @@ class MeasureHistory:
         self._threshold = max(self._floor, float(threshold)) if self._floor is not None else None
 
     ##
+    # @brief Applique une calibration : décalage et/ou seuil (cf. setOffset() et setThreshold()).
+    #
+    # @param offset    Décalage ajouté aux mesures, None pour ne pas le changer.
+    # @param threshold Seuil sous lequel les mesures corrigées sont ramenées au plancher, None pour ne pas le changer.
+    ##
+    def setCalibration(self, offset=None, threshold=None):
+        if offset is not None:
+            self.setOffset(offset)
+        if threshold is not None:
+            self.setThreshold(threshold)
+
+    ##
     # @brief Retourne le seuil.
     #
     # @return float|None Seuil, None si aucun seuillage n'est configuré.

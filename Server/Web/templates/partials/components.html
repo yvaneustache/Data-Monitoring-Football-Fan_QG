@@ -63,25 +63,28 @@
 {% endmacro %}
 
 {# Bloc d'une donnée : titre, remise à zéro, indicateurs et graphique #}
-{# calibration : {"offset", "threshold", "locked", "limit", "floor", "max"} → curseurs de décalage (offset) et de seuil, et cadenas #}
+{# calibration : {"offset", "threshold", "locked", "unit", "limit", "floor", "max", "step", "digits"} → curseurs de décalage (offset) et de seuil, et cadenas #}
 {% macro measurePanel(id, title, unit, calibration=none) %}
     <section id="{{ id }}" class="panel" aria-labelledby="{{ id }}-title">
         <div class="panel-header">
             <h2 id="{{ id }}-title">{{ title }}</h2>
             {% if calibration %}
-            <div class="offset-control" data-calibration role="group" aria-label="Calibration {{ title | lower }}">
+            {% set fmt = '%.' ~ calibration.digits ~ 'f' %}
+            <div class="offset-control" data-calibration data-digits="{{ calibration.digits }}" role="group" aria-label="Calibration {{ title | lower }}">
                 <div class="offset-field" title="Offset : ajouté à toutes les mesures, y compris celles déjà enregistrées">
                     <label class="offset-label" for="{{ id }}-offset">Offset</label>
-                    <input id="{{ id }}-offset" class="offset-slider" type="range" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="0.1" value="{{ calibration.offset }}" data-slider="offset" aria-label="Offset en dB" {% if calibration.locked %}disabled{% endif %}>
-                    <input class="offset-number" type="number" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="0.1" value="{{ '%.1f' | format(calibration.offset) }}" data-number="offset" aria-label="Offset en dB" {% if calibration.locked %}disabled{% endif %}>
-                    <span class="offset-unit">dB</span>
+                    <input id="{{ id }}-offset" class="offset-slider" type="range" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="{{ calibration.step }}" value="{{ calibration.offset }}" data-slider="offset" aria-label="Offset en {{ calibration.unit }}" {% if calibration.locked %}disabled{% endif %}>
+                    <input class="offset-number" type="number" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="{{ calibration.step }}" value="{{ fmt | format(calibration.offset) }}" data-number="offset" aria-label="Offset en {{ calibration.unit }}" {% if calibration.locked %}disabled{% endif %}>
+                    <span class="offset-unit">{{ calibration.unit }}</span>
                 </div>
-                <div class="offset-field" title="Seuil : les mesures (après offset) inférieures au seuil sont ramenées à {{ '%g' | format(calibration.floor) }} {{ unit }}">
+                {% if calibration.floor is not none %}
+                <div class="offset-field" title="Seuil : les mesures (après offset) inférieures au seuil sont ramenées à {{ '%g' | format(calibration.floor) }} {{ calibration.unit }}">
                     <label class="offset-label" for="{{ id }}-threshold">Seuil</label>
-                    <input id="{{ id }}-threshold" class="offset-slider" type="range" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="0.1" value="{{ calibration.threshold }}" data-slider="threshold" aria-label="Seuil en dB" {% if calibration.locked %}disabled{% endif %}>
-                    <input class="offset-number" type="number" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="0.1" value="{{ '%.1f' | format(calibration.threshold) }}" data-number="threshold" aria-label="Seuil en dB" {% if calibration.locked %}disabled{% endif %}>
-                    <span class="offset-unit">dB</span>
+                    <input id="{{ id }}-threshold" class="offset-slider" type="range" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="{{ calibration.step }}" value="{{ calibration.threshold }}" data-slider="threshold" aria-label="Seuil en {{ calibration.unit }}" {% if calibration.locked %}disabled{% endif %}>
+                    <input class="offset-number" type="number" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="{{ calibration.step }}" value="{{ fmt | format(calibration.threshold) }}" data-number="threshold" aria-label="Seuil en {{ calibration.unit }}" {% if calibration.locked %}disabled{% endif %}>
+                    <span class="offset-unit">{{ calibration.unit }}</span>
                 </div>
+                {% endif %}
                 <button class="btn btn-icon offset-lock" type="button" data-offset-lock aria-pressed="{{ 'true' if calibration.locked else 'false' }}" title="{{ 'Déverrouiller le réglage' if calibration.locked else 'Verrouiller le réglage' }}" aria-label="{{ 'Déverrouiller le réglage' if calibration.locked else 'Verrouiller le réglage' }}">
                     {{ lockIcon() }}
                 </button>

@@ -18,7 +18,7 @@ from datetime import datetime
 from flask import render_template, request, redirect, url_for, session, Response, jsonify, send_from_directory, abort
 
 from Server.Config.setting import Config
-from Server.Utils.data import getNameOfSupporter, getColorOfSupporter, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getColorOfTracker, getStadiumBleacherIdByName, getStadiumBleacherList, getMetricsOfStadiumBleacher, getStadiumBleacherCalibration
+from Server.Utils.data import getNameOfSupporter, getColorOfSupporter, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getColorOfTracker, getStadiumBleacherIdByName, getStadiumBleacherList, getMetricsOfStadiumBleacher, getStadiumBleacherCalibration, CALIBRATION_METRICS
 from Server.Utils.event import loadConfiguration, getConfigurationList, loadMatchInformation, loadConfigurationInformation, getCurrentMatch, getMatchEventList
 from Server.Utils.export import EXPORTS, buildCsv, buildZip
 from Server.Utils.replay import ReplayError, loadReplay, getReplay, getReplayList, modifyReplayEvents, getReplayExport, clipReplayData
@@ -219,14 +219,15 @@ def registerRoutes(app, supporterList, stadiumBleacherList, trackerList, postgre
         # Mesures des capteurs installés dans la tribune (configurées dans /event/preparation)
         metrics = getMetricsOfStadiumBleacher(stadium_bleacher_id)
 
-        # Calibration de l'acoustique (curseurs offset et seuil, cadenas) : valeurs en cours si la tribune est connectée, sinon valeurs enregistrées
-        calibration = getStadiumBleacherCalibration(stadium_bleacher_id, "acoustic")
+        # Calibration de chaque mesure (curseurs offset et seuil, cadenas) : valeurs en cours si la tribune est connectée, sinon valeurs enregistrées
+        calibrations = {metric: getStadiumBleacherCalibration(stadium_bleacher_id, metric) for metric in CALIBRATION_METRICS}
         for stadiumBleacher in stadiumBleacherList:
             if stadiumBleacher.getId() == stadium_bleacher_id:
-                calibration["offset"]    = stadiumBleacher.acoustic.getOffset()
-                calibration["threshold"] = stadiumBleacher.acoustic.getThreshold()
+                for metric, calibration in calibrations.items():
+                    calibration["offset"]    = getattr(stadiumBleacher, metric).getOffset()
+                    calibration["threshold"] = getattr(stadiumBleacher, metric).getThreshold()
 
-        return render_template("Dashboard/stadiumBleacher.html", debug=int(Config.DEBUG), id=stadium_bleacher_id, name=name, color=color, metrics=metrics, sensorDelay=Config.SENSOR_DELAY, prevId=prevId, nextId=nextId, calibration=calibration, active="dashboard")
+        return render_template("Dashboard/stadiumBleacher.html", debug=int(Config.DEBUG), id=stadium_bleacher_id, name=name, color=color, metrics=metrics, sensorDelay=Config.SENSOR_DELAY, prevId=prevId, nextId=nextId, calibrations=calibrations, active="dashboard")
 
 
 

@@ -121,6 +121,7 @@ export class CalibrationControl
     constructor(root, options)
     {
         this.options = options;
+        this.digits  = Number(root.dataset.digits ?? 1);    // décimales des réglages (1 pour dB et °C, 2 pour m/s²)
         this.lock    = root.querySelector("[data-offset-lock]");
         this.locked  = this.lock.getAttribute("aria-pressed") === "true";
         this.fields  = {};
@@ -136,7 +137,7 @@ export class CalibrationControl
             slider.addEventListener("input", () =>
             {
                 field.dragging = true;
-                number.value = Number(slider.value).toFixed(1);
+                number.value = Number(slider.value).toFixed(this.digits);
                 this._send(name, Number(slider.value));
             });
             slider.addEventListener("change", () =>
@@ -151,7 +152,7 @@ export class CalibrationControl
             {
                 const value = this._clamp(field, Number(number.value));
                 slider.value = value;
-                number.value = value.toFixed(1);
+                number.value = value.toFixed(this.digits);
                 this._flush(field);
                 options.onChange(name, value, true);
             });
@@ -172,7 +173,7 @@ export class CalibrationControl
             if (state[name] !== undefined && !field.dragging && document.activeElement !== field.number)
             {
                 field.slider.value = state[name];
-                field.number.value = Number(state[name]).toFixed(1);
+                field.number.value = Number(state[name]).toFixed(this.digits);
             }
         }
 
@@ -188,10 +189,12 @@ export class CalibrationControl
         this.lock.setAttribute("aria-label", label);
     }
 
-    /** @brief Limite une valeur à l'étendue du curseur, au dixième. */
+    /** @brief Limite une valeur à l'étendue du curseur, arrondie aux décimales de la mesure. */
     _clamp(field, value)
     {
-        return Number.isFinite(value) ? Math.round(Math.max(field.min, Math.min(field.max, value)) * 10) / 10 : field.min;
+        const scale = 10 ** this.digits;
+
+        return Number.isFinite(value) ? Math.round(Math.max(field.min, Math.min(field.max, value)) * scale) / scale : field.min;
     }
 
     /** @brief Envoi non final, au plus toutes les 100 ms (le dernier réglage est toujours envoyé). */

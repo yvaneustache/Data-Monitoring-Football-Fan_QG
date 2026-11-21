@@ -57,13 +57,20 @@ for (const [dataType, settings] of Object.entries(PANEL_SETTINGS))
     });
 }
 
-// Calibration de l'acoustique : offset (ajouté aux mesures) et seuil (mesures inférieures ramenées à 30 dB), avec un cadenas ;
-// enregistrés par le serveur (conservés après un redémarrage)
-const calibrationRoot    = document.querySelector("#acoustic [data-calibration]");
-const calibrationControl = calibrationRoot ? new CalibrationControl(calibrationRoot, {
-    onChange: (field, value, final) => socket.emit("setStadiumBleacherCalibration", { id: window.id, metric: "acoustic", [field]: value, final: final }),
-    onLock:   (locked) => socket.emit("setStadiumBleacherLock", { id: window.id, metric: "acoustic", locked: locked }),
-}) : null;
+// Calibration de chaque mesure : offset (ajouté aux mesures) et, pour l'acoustique, seuil (mesures inférieures ramenées à 30 dB), avec un
+// cadenas par mesure ; enregistrés par le serveur (conservés après un redémarrage)
+const calibrationControls = {};
+for (const dataType of Object.keys(panels))
+{
+    const root = document.querySelector(`#${dataType} [data-calibration]`);
+    if (!root)
+        continue;
+
+    calibrationControls[dataType] = new CalibrationControl(root, {
+        onChange: (field, value, final) => socket.emit("setStadiumBleacherCalibration", { id: window.id, metric: dataType, [field]: value, final: final }),
+        onLock:   (locked) => socket.emit("setStadiumBleacherLock", { id: window.id, metric: dataType, locked: locked }),
+    });
+}
 
 document.getElementById("reset-all").addEventListener("click", () =>
 {
@@ -186,24 +193,25 @@ socket.on("stadiumBleacherConnection", (data) =>
  *        sont celles du serveur, et l'historique corrigé est rechargé (au plus 4 fois par seconde pendant le glissement, puis
  *        immédiatement au relâchement) : le seuillage n'étant pas réversible, la courbe affichée ne peut pas être corrigée sur place.
  */
-let reloadTimer = null;
+const reloadTimers = {};
 socket.on("stadiumBleacherCalibration", (data) =>
 {
-    if (data.id !== window.id || data.metric !== "acoustic" || !panels.acoustic)
+    const panel = panels[data.metric];
+    if (data.id !== window.id || !panel)
         return;
 
-    calibrationControl?.set(data);
+    calibrationControls[data.metric]?.set(data);
     if ("average" in data)
-        panels.acoustic.setStatistics(data);
+        panel.setStatistics(data);
 
-    const reload = () => { reloadTimer = null; socket.emit(PANEL_SETTINGS.acoustic.request, window.id); };
+    const reload = () => { reloadTimers[data.metric] = null; socket.emit(PANEL_SETTINGS[data.metric].request, window.id); };
     if (data.final)
     {
-        clearTimeout(reloadTimer);
+        clearTimeout(reloadTimers[data.metric]);
         reload();
     }
-    else if (!reloadTimer)
-        reloadTimer = setTimeout(reload, 250);
+    else if (!reloadTimers[data.metric])
+        reloadTimers[data.metric] = setTimeout(reload, 250);
 });
 
 

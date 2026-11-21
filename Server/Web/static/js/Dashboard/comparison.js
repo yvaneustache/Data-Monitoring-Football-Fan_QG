@@ -144,11 +144,11 @@ socket.on(config.live, (data) =>
 
 
 /**
- * @brief Décalage de calibration de l'acoustique modifié : historiques rechargés (corrigés par le serveur) au relâchement du curseur.
+ * @brief Calibration de la mesure comparée modifiée : historiques rechargés (corrigés par le serveur) au relâchement du curseur.
  */
 socket.on("stadiumBleacherCalibration", (data) =>
 {
-    if (config.field === "acoustic" && data.metric === "acoustic" && data.final)
+    if (data.metric === config.field && data.final)
         socket.emit(config.request);
 });
 

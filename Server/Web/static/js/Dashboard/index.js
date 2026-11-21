@@ -278,17 +278,18 @@ socket.on("getStadiumBleacherTemperatureAllResponse", (dataList) =>
 
 
 /**
- * @brief Décalage de calibration de l'acoustique modifié : valeur affichée corrigée, puis données rechargées au relâchement du curseur.
+ * @brief Calibration d'une mesure modifiée : valeur affichée corrigée, puis données rechargées au relâchement du curseur.
  */
+const ALL_REQUESTS = { acoustic: "getStadiumBleacherAcousticAll", accelerometer: "getStadiumBleacherAccelerometerAll", temperature: "getStadiumBleacherTemperatureAll" };
 socket.on("stadiumBleacherCalibration", (data) =>
 {
-    if (data.metric !== "acoustic")
+    if (!(data.metric in ALL_REQUESTS))
         return;
 
     if (data.current != null)
-        _setStadiumValue(data.id, "acoustic", data.current);
+        _setStadiumValue(data.id, data.metric, data.current);
     if (data.final)
-        socket.emit("getStadiumBleacherAcousticAll");
+        socket.emit(ALL_REQUESTS[data.metric]);
 });
 
 

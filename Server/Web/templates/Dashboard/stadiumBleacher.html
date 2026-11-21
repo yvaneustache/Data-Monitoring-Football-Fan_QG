@@ -32,9 +32,9 @@
                     {{ ui.timebar() }}
                 </div>
                 {# Seules les mesures des capteurs installés dans la tribune (configurées dans /event/preparation) #}
-                {% if "acoustic" in metrics %}{{ ui.measurePanel("acoustic", "Acoustique", "dB(A)", calibration=calibration) }}{% endif %}
-                {% if "accelerometer" in metrics %}{{ ui.measurePanel("accelerometer", "Vibration", "m/s²") }}{% endif %}
-                {% if "temperature" in metrics %}{{ ui.measurePanel("temperature", "Température", "°C") }}{% endif %}
+                {% if "acoustic" in metrics %}{{ ui.measurePanel("acoustic", "Acoustique", "dB(A)", calibration=calibrations.acoustic) }}{% endif %}
+                {% if "accelerometer" in metrics %}{{ ui.measurePanel("accelerometer", "Vibration", "m/s²", calibration=calibrations.accelerometer) }}{% endif %}
+                {% if "temperature" in metrics %}{{ ui.measurePanel("temperature", "Température", "°C", calibration=calibrations.temperature) }}{% endif %}
             </div>
             {{ ui.eventsSidebar() }}
         </main>

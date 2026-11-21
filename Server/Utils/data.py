@@ -218,10 +218,21 @@ def saveStadiumBleacherMetrics(metrics):
 
 
 
-CALIBRATION_METRICS = ["acoustic"]       ##< @brief Mesures dont la calibration (décalage et seuil) est réglable (champ "calibration" de stadiumBleacher.json).
-CALIBRATION_LIMIT   = 30.0               ##< @brief Décalage de calibration maximal, dans les deux sens (dB).
-CALIBRATION_FLOOR   = 30.0               ##< @brief Niveau auquel sont ramenées les mesures inférieures au seuil (dB(A) pour l'acoustique) ; aussi le seuil minimal.
-CALIBRATION_MAX     = 100.0              ##< @brief Seuil maximal (dB).
+##
+# Calibration réglable de chaque mesure d'une tribune (curseurs de la page Tribune) :
+#   - unit   : unité affichée à côté des curseurs ;
+#   - limit  : décalage (offset) maximal, dans les deux sens ;
+#   - step   : pas des curseurs ; digits : nombre de décimales des réglages ;
+#   - floor, max : seuil (acoustique seulement, None sinon) : niveau auquel sont ramenées les mesures inférieures au seuil, qui est
+#                  aussi le seuil minimal, et seuil maximal.
+# La vibration et la température n'ont qu'un offset, sans seuil.
+##
+CALIBRATION = {
+    "acoustic":      {"unit": "dB",   "limit": 30.0, "step": 0.1,  "digits": 1, "floor": 30.0, "max": 100.0},
+    "accelerometer": {"unit": "m/s²", "limit": 2.0,  "step": 0.01, "digits": 2, "floor": None, "max": None},
+    "temperature":   {"unit": "°C",   "limit": 10.0, "step": 0.1,  "digits": 1, "floor": None, "max": None},
+} ##< @brief Calibration de chaque mesure : cf. ci-dessus.
+CALIBRATION_METRICS = list(CALIBRATION) ##< @brief Mesures dont la calibration est réglable (champ "calibration" de stadiumBleacher.json).
 
 
 
@@ -232,21 +243,23 @@ CALIBRATION_MAX     = 100.0              ##< @brief Seuil maximal (dB).
 # ou une reconstruction de l'image Docker (dossier Resources/Data monté depuis la machine).
 #
 # @param stadiumBleacherId Identifiant de la tribune.
-# @param metric            Mesure ("acoustic").
+# @param metric            Mesure ("acoustic", "accelerometer" ou "temperature").
 #
-# @return dict {"offset": décalage ajouté aux mesures (dB), "threshold": seuil (dB) sous lequel les mesures corrigées sont ramenées
-#              à "floor", "locked": réglage verrouillé, "limit": décalage maximal, "floor", "max": bornes du seuil} ;
-#              décalage 0, seuil = plancher et déverrouillé si rien n'est enregistré.
+# @return dict {"offset": décalage ajouté aux mesures, "threshold": seuil sous lequel les mesures corrigées sont ramenées à "floor"
+#              (None pour une mesure sans seuil), "locked": réglage verrouillé, et les réglages de CALIBRATION : "unit", "limit",
+#              "step", "digits", "floor", "max"} ; décalage 0, seuil = plancher et déverrouillé si rien n'est enregistré.
 ##
 def getStadiumBleacherCalibration(stadiumBleacherId, metric):
-    calibration = {"offset": 0.0, "threshold": CALIBRATION_FLOOR, "locked": False, "limit": CALIBRATION_LIMIT, "floor": CALIBRATION_FLOOR, "max": CALIBRATION_MAX}
+    setting     = CALIBRATION[metric]
+    calibration = {"offset": 0.0, "threshold": setting["floor"], "locked": False, **setting}      # seuil None si la mesure n'en a pas
 
     for item in _loadStadiumBleacherFile():
         if item["id"] == int(stadiumBleacherId):
             saved = item.get("calibration", {}).get(metric, {})
             try:
-                calibration["offset"]    = max(-CALIBRATION_LIMIT, min(CALIBRATION_LIMIT, float(saved.get("offset", 0.0))))
-                calibration["threshold"] = max(CALIBRATION_FLOOR, min(CALIBRATION_MAX, float(saved.get("threshold", CALIBRATION_FLOOR))))
+                calibration["offset"] = max(-setting["limit"], min(setting["limit"], float(saved.get("offset", 0.0))))
+                if setting["floor"] is not None:
+                    calibration["threshold"] = max(setting["floor"], min(setting["max"], float(saved.get("threshold", setting["floor"]))))
             except (TypeError, ValueError):
                 pass
             calibration["locked"] = bool(saved.get("locked", False))
@@ -260,9 +273,9 @@ def getStadiumBleacherCalibration(stadiumBleacherId, metric):
 # @brief Enregistre la calibration d'une mesure d'une tribune dans stadiumBleacher.json (les autres champs sont conservés).
 #
 # @param stadiumBleacherId Identifiant de la tribune.
-# @param metric            Mesure ("acoustic").
-# @param offset            Nouveau décalage en dB (None pour ne pas le changer).
-# @param threshold         Nouveau seuil en dB (None pour ne pas le changer).
+# @param metric            Mesure ("acoustic", "accelerometer" ou "temperature").
+# @param offset            Nouveau décalage (None pour ne pas le changer).
+# @param threshold         Nouveau seuil (None pour ne pas le changer).
 # @param locked            Nouveau verrou (None pour ne pas le changer).
 #
 # @return dict La calibration enregistrée (cf. getStadiumBleacherCalibration()).
@@ -270,18 +283,20 @@ def getStadiumBleacherCalibration(stadiumBleacherId, metric):
 # @throws RuntimeError Si la tribune est inconnue ou si le fichier ne peut pas être écrit.
 ##
 def saveStadiumBleacherCalibration(stadiumBleacherId, metric, offset=None, threshold=None, locked=None):
+    setting          = CALIBRATION[metric]
     stadiumBleachers = _loadStadiumBleacherFile()
 
     for item in stadiumBleachers:
         if item["id"] == int(stadiumBleacherId):
-            saved = item.setdefault("calibration", {}).setdefault(metric, {"offset": 0.0, "threshold": CALIBRATION_FLOOR, "locked": False})
+            saved = item.setdefault("calibration", {}).setdefault(metric, {"offset": 0.0, "locked": False})
             if offset is not None:
-                saved["offset"] = round(max(-CALIBRATION_LIMIT, min(CALIBRATION_LIMIT, float(offset))), 1)
-            if threshold is not None:
-                saved["threshold"] = round(max(CALIBRATION_FLOOR, min(CALIBRATION_MAX, float(threshold))), 1)
+                saved["offset"] = round(max(-setting["limit"], min(setting["limit"], float(offset))), setting["digits"])
+            if threshold is not None and setting["floor"] is not None:
+                saved["threshold"] = round(max(setting["floor"], min(setting["max"], float(threshold))), setting["digits"])
             if locked is not None:
                 saved["locked"] = bool(locked)
-            saved.setdefault("threshold", CALIBRATION_FLOOR)
+            if setting["floor"] is not None:
+                saved.setdefault("threshold", setting["floor"])
 
             _writeStadiumBleacherFile(stadiumBleachers)
             logger.info(f"[Data] Calibration enregistrée : tribune {stadiumBleacherId}, {metric} = {saved}")

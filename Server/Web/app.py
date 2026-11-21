@@ -19,7 +19,7 @@ from Server.Core.Supporter.supporter import Supporter
 from Server.Core.StadiumBleacher.stadiumBleacher import StadiumBleacher
 from Server.Core.Tracker.tracker import Tracker
 from Server.Utils.display import printBanner
-from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, createStadiumBleacherTemperatureForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getStadiumBleacherCalibration, makeMessageSystem, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker
+from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, createStadiumBleacherTemperatureForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, getStadiumBleacherCalibration, CALIBRATION_METRICS, makeMessageSystem, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker
 from Server.Core.mqtt import MQTTClientWrapper
 from Server.Core.postgresql import PostgreSQLClientWrapper
 from Server.Web.routes import registerRoutes
@@ -283,9 +283,10 @@ def _createStadiumBleacher(stadiumBleacherId, topic):
     color = getColorOfStadiumBleacher(stadiumBleacherId)
 
     stadiumBleacher = StadiumBleacher(stadiumBleacherId, name)
-    # Calibration enregistrée (stadiumBleacher.json) : décalage et seuil des mesures acoustiques, conservés après un redémarrage
-    calibration = getStadiumBleacherCalibration(stadiumBleacherId, "acoustic")
-    stadiumBleacher.acoustic.setCalibration(offset=calibration["offset"], threshold=calibration["threshold"])
+    # Calibration enregistrée (stadiumBleacher.json) : décalage et seuil de chaque mesure, conservés après un redémarrage
+    for metric in CALIBRATION_METRICS:
+        calibration = getStadiumBleacherCalibration(stadiumBleacherId, metric)
+        getattr(stadiumBleacher, metric).setCalibration(offset=calibration["offset"], threshold=calibration["threshold"])
     stadiumBleacherList.append(stadiumBleacher)
 
     if topic == "accelerometer_gyroscope":
