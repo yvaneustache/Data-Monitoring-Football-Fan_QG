@@ -144,6 +144,17 @@ socket.on(config.live, (data) =>
 
 
 /**
+ * @brief Décalage de calibration de l'acoustique modifié : historiques rechargés (corrigés par le serveur) au relâchement du curseur.
+ */
+socket.on("stadiumBleacherCalibration", (data) =>
+{
+    if (config.field === "acoustic" && data.metric === "acoustic" && data.final)
+        socket.emit(config.request);
+});
+
+
+
+/**
  * @brief Nouveau supporter ou nouvelle tribune : rechargement de son historique.
  */
 socket.on(config.connection, () =>

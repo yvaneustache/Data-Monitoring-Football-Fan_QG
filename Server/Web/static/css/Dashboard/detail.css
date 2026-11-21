@@ -1547,3 +1547,92 @@ html:has(.sticky-head)
 {
     visibility: visible;
 }
+
+/* =========================================================================
+    Décalage (offset) de calibration d'une mesure : curseur, valeur et cadenas, dans l'en-tête du bloc
+   ========================================================================= */
+
+.offset-control
+{
+    flex: 1 1 auto;
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px 16px;
+}
+.offset-field
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.offset-label
+{
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--text-muted);
+}
+.offset-slider
+{
+    flex: none;
+    width: 110px;
+    accent-color: var(--brand-orange);
+    cursor: pointer;
+}
+.offset-number
+{
+    flex: none;
+    width: 68px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: var(--radius-small);
+    border: 1px solid var(--card-border);
+    background-color: var(--card-background);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+.offset-unit
+{
+    font-size: 14px;
+    color: var(--text-muted);
+}
+.offset-slider:disabled, .offset-number:disabled
+{
+    opacity: .4;
+    cursor: not-allowed;
+}
+/* Cadenas : ouvert par défaut, fermé et orange une fois le réglage verrouillé */
+.offset-lock .lock-closed
+{
+    display: none;
+}
+.offset-lock[aria-pressed="true"] .lock-open
+{
+    display: none;
+}
+.offset-lock[aria-pressed="true"] .lock-closed
+{
+    display: inline;
+}
+.offset-lock[aria-pressed="true"]
+{
+    background-color: var(--brand-orange);
+    border-color: var(--brand-orange);
+}
+.offset-lock[aria-pressed="true"] svg
+{
+    color: var(--brand-black);
+}
+@media (max-width: 640px)
+{
+    .offset-control
+    {
+        flex-basis: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+}

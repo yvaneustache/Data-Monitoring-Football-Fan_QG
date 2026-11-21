@@ -278,6 +278,22 @@ socket.on("getStadiumBleacherTemperatureAllResponse", (dataList) =>
 
 
 /**
+ * @brief Décalage de calibration de l'acoustique modifié : valeur affichée corrigée, puis données rechargées au relâchement du curseur.
+ */
+socket.on("stadiumBleacherCalibration", (data) =>
+{
+    if (data.metric !== "acoustic")
+        return;
+
+    if (data.current != null)
+        _setStadiumValue(data.id, "acoustic", data.current);
+    if (data.final)
+        socket.emit("getStadiumBleacherAcousticAll");
+});
+
+
+
+/**
  * @brief Nouvelle mesure acoustique.
  */
 socket.on("newStadiumBleacherAcoustic", (data) =>

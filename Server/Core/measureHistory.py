@@ -11,6 +11,7 @@
 # =============================================================================
 
 import time
+from array import array
 from collections import deque
 
 # =============================================================================
@@ -77,6 +78,11 @@ class MeasureHistory:
         self._received  = deque(maxlen=SEQUENCE_SPAN)   ##< @brief Derniers envois numérotés : (heure de réception en s, créneau).
         self._knownSpan = None                          ##< @brief Dernière durée réelle mesurée d'un envoi (s), conservée si le capteur redémarre.
 
+        self._offset    = 0.0                           ##< @brief Décalage de calibration ajouté à toutes les mesures lues (même unité que les mesures).
+        self._floor     = None                          ##< @brief Valeur à laquelle sont ramenées les mesures inférieures au seuil (None : pas de seuillage, cf. configureThreshold()).
+        self._threshold = None                          ##< @brief Seuil : les mesures corrigées du décalage qui lui sont inférieures sont ramenées à _floor.
+        self._values    = array("d")                    ##< @brief Mesures brutes des statistiques, si un seuillage est configuré (la moyenne des mesures seuillées en dépend).
+
         return
 
 # =============================================================================
@@ -89,7 +95,7 @@ class MeasureHistory:
     # @return float|None Dernière valeur, None si aucune mesure.
     ##
     def getLasted(self):
-        return self._history[-1][1] if self._history else None
+        return self._shifted(self._history[-1][1]) if self._history else None
 
     ##
     # @brief Retourne la valeur actuelle : maximum des mesures valides du dernier envoi du capteur
@@ -98,7 +104,7 @@ class MeasureHistory:
     # @return float|None Valeur actuelle, None si aucune mesure depuis la remise à zéro.
     ##
     def getCurrent(self):
-        return self._current
+        return self._shifted(self._current)
 
     ##
     # @brief Retourne la moyenne des mesures depuis la dernière remise à zéro.
@@ -109,7 +115,16 @@ class MeasureHistory:
         if self._count == 0:
             return None
 
-        return round(self._total / self._count, 1)
+        if self._floor is None:
+            return round(self._total / self._count + self._offset, 1)
+
+        # Moyenne des mesures corrigées puis seuillées : le seuillage de chaque mesure dépend de sa valeur
+        offset, threshold, floor, total = self._offset, self._threshold, self._floor, 0.0
+        for value in self._values:
+            corrected = value + offset
+            total += floor if corrected < threshold else corrected
+
+        return round(total / len(self._values), 1)
 
     ##
     # @brief Retourne la valeur minimale depuis la dernière remise à zéro.
@@ -117,7 +132,7 @@ class MeasureHistory:
     # @return float|None Valeur minimale, None si aucune mesure.
     ##
     def getMinimum(self):
-        return self._minimum
+        return self._shifted(self._minimum)
 
     ##
     # @brief Retourne la valeur maximale depuis la dernière remise à zéro.
@@ -125,7 +140,7 @@ class MeasureHistory:
     # @return float|None Valeur maximale, None si aucune mesure.
     ##
     def getMaximum(self):
-        return self._maximum
+        return self._shifted(self._maximum)
 
     ##
     # @brief Retourne le dernier envoi de données du capteur.
@@ -136,12 +151,88 @@ class MeasureHistory:
         return self._lastData
 
     ##
-    # @brief Retourne l'historique horodaté des mesures.
+    # @brief Retourne l'historique horodaté des mesures, corrigé du décalage de calibration.
     #
     # @return list Liste de couples [timestamp en ms, valeur], du plus ancien au plus récent.
     ##
     def getHistory(self):
-        return list(self._history)
+        if not self._calibrated():
+            return list(self._history)
+
+        return [[timestamp, self._shifted(value)] for timestamp, value in self._history]
+
+    ##
+    # @brief Retourne le décalage de calibration ajouté aux mesures.
+    #
+    # @return float Décalage (même unité que les mesures).
+    ##
+    def getOffset(self):
+        return self._offset
+
+# =============================================================================
+#  Calibration
+# =============================================================================
+
+    ##
+    # @brief Fixe le décalage de calibration ajouté aux mesures.
+    #
+    # Les mesures sont conservées brutes : le décalage est appliqué à la lecture (historique, valeur actuelle,
+    # moyenne, minimum, maximum). Le changer corrige donc aussi toutes les mesures déjà enregistrées.
+    #
+    # @param offset Décalage (même unité que les mesures).
+    ##
+    def setOffset(self, offset):
+        self._offset = float(offset)
+
+    ##
+    # @brief Active le seuillage : les mesures corrigées du décalage inférieures au seuil sont ramenées à une valeur plancher.
+    #
+    # Le seuil ne peut pas être inférieur au plancher, ce qui garde la correction croissante avec la mesure (le minimum
+    # et le maximum corrigés sont ceux des mesures minimale et maximale).
+    #
+    # @param floor     Valeur plancher (ex : 30 dB).
+    # @param threshold Seuil initial (plancher par défaut : seules les mesures inférieures au plancher sont relevées).
+    ##
+    def configureThreshold(self, floor, threshold=None):
+        self._floor = float(floor)
+        self.setThreshold(threshold if threshold is not None else floor)
+
+    ##
+    # @brief Fixe le seuil : les mesures corrigées inférieures à ce seuil sont ramenées au plancher (cf. configureThreshold()).
+    #
+    # @param threshold Seuil (même unité que les mesures), ramené au plancher s'il lui est inférieur.
+    ##
+    def setThreshold(self, threshold):
+        self._threshold = max(self._floor, float(threshold)) if self._floor is not None else None
+
+    ##
+    # @brief Retourne le seuil.
+    #
+    # @return float|None Seuil, None si aucun seuillage n'est configuré.
+    ##
+    def getThreshold(self):
+        return self._threshold
+
+    ##
+    # @brief Indique si la calibration modifie les mesures lues.
+    ##
+    def _calibrated(self):
+        return bool(self._offset) or self._threshold is not None
+
+    ##
+    # @brief Applique la calibration (décalage, puis seuillage) à une valeur brute.
+    #
+    # @param value Valeur brute (None conservé).
+    #
+    # @return float|None Valeur corrigée.
+    ##
+    def _shifted(self, value):
+        if value is None:
+            return None
+
+        corrected = round(value + self._offset, 6) if self._offset else value
+
+        return self._floor if self._threshold is not None and corrected < self._threshold else corrected
 
 # =============================================================================
 #  Méthodes
@@ -211,6 +302,8 @@ class MeasureHistory:
 
             self._count += 1
             self._total += value
+            if self._floor is not None:
+                self._values.append(value)
 
             if self._minimum is None or value < self._minimum:
                 self._minimum = value
@@ -223,7 +316,8 @@ class MeasureHistory:
             self._current  = max(point[1] for point in added)
             self._lastData = values
 
-        return added
+        # Mesures renvoyées corrigées du décalage de calibration (l'historique garde les valeurs brutes)
+        return [[timestamp, self._shifted(value)] for timestamp, value in added] if self._calibrated() else added
 
     ##
     # @brief Insère une mesure dans l'historique à sa place (ordre chronologique).
@@ -420,6 +514,7 @@ class MeasureHistory:
         self._current = None
         self._count   = 0
         self._total   = 0
+        self._values  = array("d")
         self._minimum = None
         self._maximum = None
 

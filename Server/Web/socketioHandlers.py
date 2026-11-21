@@ -15,7 +15,7 @@ from flask_socketio import emit
 from datetime import datetime, timedelta
 
 from Server.Config.setting import Config
-from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, createStadiumBleacherTemperatureForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker, saveStadiumBleacherMetrics
+from Server.Utils.data import createSupporterHeartRateForClient, getNameOfSupporter, getColorOfSupporter, createStadiumBleacherAccelerometerForClient, createStadiumBleacherAcousticForClient, createStadiumBleacherTemperatureForClient, getNameOfStadiumBleacher, getColorOfStadiumBleacher, createTrackerPositionForClient, getNameOfTracker, getColorOfTracker, getZoneOfTracker, saveStadiumBleacherMetrics, getStadiumBleacherCalibration, saveStadiumBleacherCalibration, CALIBRATION_METRICS, CALIBRATION_LIMIT, CALIBRATION_FLOOR, CALIBRATION_MAX
 from Server.Utils.event import createNewEventConfiguration, getCurrentMatch, getMatchEventList, matchClock, createNewMatch
 from Server.Utils.logger import Logger
 
@@ -223,6 +223,119 @@ def registerSocketioHandlers(socketio, supporterList, stadiumBleacherList, track
                 return
 
         logger.warning(f"[SocketIO] Aucune tribune trouvé avec l'id={stadiumBleacherId}")
+
+        return
+
+# =============================================================================
+#  Calibration (décalage et seuil) d'une mesure d'une tribune
+# =============================================================================
+
+    ##
+    # @brief Envoie à tous les clients la calibration d'une mesure d'une tribune.
+    #
+    # @param stadiumBleacherId Identifiant de la tribune.
+    # @param metric            Mesure ("acoustic").
+    # @param calibration       {"offset", "threshold", "locked"}.
+    # @param final             Réglage terminé (curseur relâché) : les pages rechargent alors les données complètes.
+    #
+    # L'évènement contient les statistiques corrigées (valeur actuelle, moyenne, minimum, maximum).
+    ##
+    def _broadcastCalibration(stadiumBleacherId, metric, calibration, final):
+        statistics = {"current": None, "average": None, "minimum": None, "maximum": None}
+        for stadiumBleacher in stadiumBleacherList:
+            if stadiumBleacher.getId() == stadiumBleacherId:
+                statistics = stadiumBleacher.acoustic.getStatistics()
+
+        socketio.emit("stadiumBleacherCalibration", {"id": stadiumBleacherId, "metric": metric, "offset": calibration["offset"], "threshold": calibration["threshold"],
+                                                     "locked": calibration["locked"], "final": final, **statistics})
+
+        return
+
+
+
+    ##
+    # @brief Règle le décalage (offset) et/ou le seuil d'une mesure d'une tribune (curseurs de la page Tribune).
+    #
+    # Les mesures sont conservées brutes : le décalage est ajouté puis les valeurs inférieures au seuil sont ramenées à 30 dB,
+    # pour l'historique, les statistiques et les exports. Refusé si le réglage est verrouillé. Enregistré dans
+    # stadiumBleacher.json quand le réglage est terminé (final), donc conservé après un redémarrage du serveur ou
+    # une reconstruction de l'image.
+    #
+    # @param data {"id": tribune, "metric": "acoustic", "offset": décalage en dB (optionnel), "threshold": seuil en dB (optionnel),
+    #              "final": curseur relâché}.
+    ##
+    @socketio.on("setStadiumBleacherCalibration")
+    def handleSetStadiumBleacherCalibration(data):
+        try:
+            stadiumBleacherId = int(data["id"])
+            metric            = data["metric"]
+            offset            = round(float(data["offset"]), 1) if data.get("offset") is not None else None
+            threshold         = round(float(data["threshold"]), 1) if data.get("threshold") is not None else None
+            final             = bool(data.get("final", True))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            logger.warning(f"[SocketIO] 'setStadiumBleacherCalibration' : données invalides {data}")
+            return
+
+        if metric not in CALIBRATION_METRICS or (offset is None and threshold is None) \
+                or (offset is not None and not abs(offset) <= CALIBRATION_LIMIT) \
+                or (threshold is not None and not CALIBRATION_FLOOR <= threshold <= CALIBRATION_MAX):
+            logger.warning(f"[SocketIO] 'setStadiumBleacherCalibration' : réglage refusé (mesure={metric}, décalage={offset}, seuil={threshold})")
+            return
+
+        saved = getStadiumBleacherCalibration(stadiumBleacherId, metric)
+        if saved["locked"]:
+            logger.info(f"[SocketIO] 'setStadiumBleacherCalibration' : tribune {stadiumBleacherId} verrouillée, réglage refusé")
+            emit("stadiumBleacherCalibration", {"id": stadiumBleacherId, "metric": metric, "offset": saved["offset"], "threshold": saved["threshold"], "locked": True, "final": True})
+            return
+
+        for stadiumBleacher in stadiumBleacherList:
+            if stadiumBleacher.getId() == stadiumBleacherId:
+                stadiumBleacher.acoustic.setCalibration(offset=offset, threshold=threshold)
+
+        calibration = {"offset": saved["offset"] if offset is None else offset, "threshold": saved["threshold"] if threshold is None else threshold, "locked": False}
+        if final:
+            try:
+                calibration = saveStadiumBleacherCalibration(stadiumBleacherId, metric, offset=offset, threshold=threshold)
+            except RuntimeError:
+                logger.warning(f"[SocketIO] 'setStadiumBleacherCalibration' : tribune inconnue ({stadiumBleacherId}) ou fichier non écrit")
+                return
+
+        _broadcastCalibration(stadiumBleacherId, metric, calibration, final)
+
+        return
+
+
+
+    ##
+    # @brief Verrouille ou déverrouille le réglage de la calibration d'une mesure d'une tribune (cadenas).
+    #
+    # @param data {"id": tribune, "metric": "acoustic", "locked": verrou}.
+    ##
+    @socketio.on("setStadiumBleacherLock")
+    def handleSetStadiumBleacherLock(data):
+        try:
+            stadiumBleacherId = int(data["id"])
+            metric            = data["metric"]
+            locked            = bool(data["locked"])
+        except (TypeError, ValueError, KeyError, AttributeError):
+            logger.warning(f"[SocketIO] 'setStadiumBleacherLock' : données invalides {data}")
+            return
+
+        if metric not in CALIBRATION_METRICS:
+            return
+
+        try:
+            calibration = saveStadiumBleacherCalibration(stadiumBleacherId, metric, locked=locked)
+        except RuntimeError:
+            logger.warning(f"[SocketIO] 'setStadiumBleacherLock' : tribune inconnue ou fichier non écrit ({stadiumBleacherId})")
+            return
+
+        # Calibration appliquée en mémoire = calibration enregistrée (un réglage en cours non terminé est abandonné au verrouillage)
+        for stadiumBleacher in stadiumBleacherList:
+            if stadiumBleacher.getId() == stadiumBleacherId:
+                stadiumBleacher.acoustic.setCalibration(offset=calibration["offset"], threshold=calibration["threshold"])
+
+        _broadcastCalibration(stadiumBleacherId, metric, calibration, True)
 
         return
 

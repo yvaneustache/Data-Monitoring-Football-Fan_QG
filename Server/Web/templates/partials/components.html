@@ -56,11 +56,37 @@
     </section>
 {% endmacro %}
 
+{# Cadenas : fermé = réglage verrouillé, ouvert = réglage libre (le curseur d'offset s'adapte via aria-pressed) #}
+{% macro lockIcon() %}
+    <svg class="lock-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    <svg class="lock-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+{% endmacro %}
+
 {# Bloc d'une donnée : titre, remise à zéro, indicateurs et graphique #}
-{% macro measurePanel(id, title, unit) %}
+{# calibration : {"offset", "threshold", "locked", "limit", "floor", "max"} → curseurs de décalage (offset) et de seuil, et cadenas #}
+{% macro measurePanel(id, title, unit, calibration=none) %}
     <section id="{{ id }}" class="panel" aria-labelledby="{{ id }}-title">
         <div class="panel-header">
             <h2 id="{{ id }}-title">{{ title }}</h2>
+            {% if calibration %}
+            <div class="offset-control" data-calibration role="group" aria-label="Calibration {{ title | lower }}">
+                <div class="offset-field" title="Offset : ajouté à toutes les mesures, y compris celles déjà enregistrées">
+                    <label class="offset-label" for="{{ id }}-offset">Offset</label>
+                    <input id="{{ id }}-offset" class="offset-slider" type="range" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="0.1" value="{{ calibration.offset }}" data-slider="offset" aria-label="Offset en dB" {% if calibration.locked %}disabled{% endif %}>
+                    <input class="offset-number" type="number" min="-{{ '%g' | format(calibration.limit) }}" max="{{ '%g' | format(calibration.limit) }}" step="0.1" value="{{ '%.1f' | format(calibration.offset) }}" data-number="offset" aria-label="Offset en dB" {% if calibration.locked %}disabled{% endif %}>
+                    <span class="offset-unit">dB</span>
+                </div>
+                <div class="offset-field" title="Seuil : les mesures (après offset) inférieures au seuil sont ramenées à {{ '%g' | format(calibration.floor) }} {{ unit }}">
+                    <label class="offset-label" for="{{ id }}-threshold">Seuil</label>
+                    <input id="{{ id }}-threshold" class="offset-slider" type="range" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="0.1" value="{{ calibration.threshold }}" data-slider="threshold" aria-label="Seuil en dB" {% if calibration.locked %}disabled{% endif %}>
+                    <input class="offset-number" type="number" min="{{ '%g' | format(calibration.floor) }}" max="{{ '%g' | format(calibration.max) }}" step="0.1" value="{{ '%.1f' | format(calibration.threshold) }}" data-number="threshold" aria-label="Seuil en dB" {% if calibration.locked %}disabled{% endif %}>
+                    <span class="offset-unit">dB</span>
+                </div>
+                <button class="btn btn-icon offset-lock" type="button" data-offset-lock aria-pressed="{{ 'true' if calibration.locked else 'false' }}" title="{{ 'Déverrouiller le réglage' if calibration.locked else 'Verrouiller le réglage' }}" aria-label="{{ 'Déverrouiller le réglage' if calibration.locked else 'Verrouiller le réglage' }}">
+                    {{ lockIcon() }}
+                </button>
+            </div>
+            {% endif %}
             <button class="btn" type="button" data-reset="{{ id }}" aria-label="Remettre à zéro les statistiques {{ title | lower }}">
                 {{ resetIcon() }}
                 Remettre à zéro

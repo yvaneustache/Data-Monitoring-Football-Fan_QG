@@ -12,7 +12,7 @@
 
 import { TimeNavigator, bindLiveIndicator } from "../Utils/timeChart.js";
 import { MatchEvents } from "../Utils/matchEvents.js";
-import { MeasurePanel, showToast } from "../Utils/measurePanel.js";
+import { MeasurePanel, CalibrationControl, showToast } from "../Utils/measurePanel.js";
 import { fitChartsToScreen } from "../Utils/fitCharts.js";
 
 // ============================================================================
@@ -56,6 +56,14 @@ for (const [dataType, settings] of Object.entries(PANEL_SETTINGS))
         onReset:      () => resetStatistics(dataType),
     });
 }
+
+// Calibration de l'acoustique : offset (ajouté aux mesures) et seuil (mesures inférieures ramenées à 30 dB), avec un cadenas ;
+// enregistrés par le serveur (conservés après un redémarrage)
+const calibrationRoot    = document.querySelector("#acoustic [data-calibration]");
+const calibrationControl = calibrationRoot ? new CalibrationControl(calibrationRoot, {
+    onChange: (field, value, final) => socket.emit("setStadiumBleacherCalibration", { id: window.id, metric: "acoustic", [field]: value, final: final }),
+    onLock:   (locked) => socket.emit("setStadiumBleacherLock", { id: window.id, metric: "acoustic", locked: locked }),
+}) : null;
 
 document.getElementById("reset-all").addEventListener("click", () =>
 {
@@ -169,6 +177,33 @@ socket.on("stadiumBleacherConnection", (data) =>
 {
     if (data.id === window.id)
         requestData();
+});
+
+
+
+/**
+ * @brief Calibration (offset, seuil) ou verrou modifié, depuis cette page ou une autre : les curseurs suivent, les statistiques
+ *        sont celles du serveur, et l'historique corrigé est rechargé (au plus 4 fois par seconde pendant le glissement, puis
+ *        immédiatement au relâchement) : le seuillage n'étant pas réversible, la courbe affichée ne peut pas être corrigée sur place.
+ */
+let reloadTimer = null;
+socket.on("stadiumBleacherCalibration", (data) =>
+{
+    if (data.id !== window.id || data.metric !== "acoustic" || !panels.acoustic)
+        return;
+
+    calibrationControl?.set(data);
+    if ("average" in data)
+        panels.acoustic.setStatistics(data);
+
+    const reload = () => { reloadTimer = null; socket.emit(PANEL_SETTINGS.acoustic.request, window.id); };
+    if (data.final)
+    {
+        clearTimeout(reloadTimer);
+        reload();
+    }
+    else if (!reloadTimer)
+        reloadTimer = setTimeout(reload, 250);
 });
 
 

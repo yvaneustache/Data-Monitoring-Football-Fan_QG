@@ -171,19 +171,14 @@ def getMetricsOfStadiumBleacher(stadiumBleacherId):
 
 
 ##
-# @brief Enregistre les mesures des capteurs de chaque tribune dans stadiumBleacher.json (les autres champs sont conservés).
+# @brief Écrit le fichier stadiumBleacher.json.
 #
-# @param metrics Dictionnaire {identifiant de tribune: liste de mesures}.
+# @param stadiumBleachers Liste de dictionnaires représentant les tribunes.
 #
 # @throws RuntimeError Si le fichier ne peut pas être écrit.
 ##
-def saveStadiumBleacherMetrics(metrics):
+def _writeStadiumBleacherFile(stadiumBleachers):
     filePath = Config.PATH["data"] + "stadiumBleacher.json"
-    stadiumBleachers = _loadStadiumBleacherFile()
-
-    for item in stadiumBleachers:
-        if item["id"] in metrics:
-            item["metrics"] = [m for m in STADIUM_BLEACHER_METRICS if m in metrics[item["id"]]]
 
     try:
         # Écriture dans un fichier temporaire puis remplacement : pas de fichier à moitié écrit
@@ -197,9 +192,105 @@ def saveStadiumBleacherMetrics(metrics):
         logger.error(message)
         raise RuntimeError(message) from e
 
+    return
+
+
+
+##
+# @brief Enregistre les mesures des capteurs de chaque tribune dans stadiumBleacher.json (les autres champs sont conservés).
+#
+# @param metrics Dictionnaire {identifiant de tribune: liste de mesures}.
+#
+# @throws RuntimeError Si le fichier ne peut pas être écrit.
+##
+def saveStadiumBleacherMetrics(metrics):
+    stadiumBleachers = _loadStadiumBleacherFile()
+
+    for item in stadiumBleachers:
+        if item["id"] in metrics:
+            item["metrics"] = [m for m in STADIUM_BLEACHER_METRICS if m in metrics[item["id"]]]
+
+    _writeStadiumBleacherFile(stadiumBleachers)
+
     logger.info(f"[Data] Mesures des tribunes enregistrées : {metrics}")
 
     return
+
+
+
+CALIBRATION_METRICS = ["acoustic"]       ##< @brief Mesures dont la calibration (décalage et seuil) est réglable (champ "calibration" de stadiumBleacher.json).
+CALIBRATION_LIMIT   = 30.0               ##< @brief Décalage de calibration maximal, dans les deux sens (dB).
+CALIBRATION_FLOOR   = 30.0               ##< @brief Niveau auquel sont ramenées les mesures inférieures au seuil (dB(A) pour l'acoustique) ; aussi le seuil minimal.
+CALIBRATION_MAX     = 100.0              ##< @brief Seuil maximal (dB).
+
+
+
+##
+# @brief Retourne la calibration d'une mesure d'une tribune : décalage, seuil et verrou.
+#
+# La calibration est conservée dans stadiumBleacher.json (champ "calibration"), donc après un redémarrage du serveur
+# ou une reconstruction de l'image Docker (dossier Resources/Data monté depuis la machine).
+#
+# @param stadiumBleacherId Identifiant de la tribune.
+# @param metric            Mesure ("acoustic").
+#
+# @return dict {"offset": décalage ajouté aux mesures (dB), "threshold": seuil (dB) sous lequel les mesures corrigées sont ramenées
+#              à "floor", "locked": réglage verrouillé, "limit": décalage maximal, "floor", "max": bornes du seuil} ;
+#              décalage 0, seuil = plancher et déverrouillé si rien n'est enregistré.
+##
+def getStadiumBleacherCalibration(stadiumBleacherId, metric):
+    calibration = {"offset": 0.0, "threshold": CALIBRATION_FLOOR, "locked": False, "limit": CALIBRATION_LIMIT, "floor": CALIBRATION_FLOOR, "max": CALIBRATION_MAX}
+
+    for item in _loadStadiumBleacherFile():
+        if item["id"] == int(stadiumBleacherId):
+            saved = item.get("calibration", {}).get(metric, {})
+            try:
+                calibration["offset"]    = max(-CALIBRATION_LIMIT, min(CALIBRATION_LIMIT, float(saved.get("offset", 0.0))))
+                calibration["threshold"] = max(CALIBRATION_FLOOR, min(CALIBRATION_MAX, float(saved.get("threshold", CALIBRATION_FLOOR))))
+            except (TypeError, ValueError):
+                pass
+            calibration["locked"] = bool(saved.get("locked", False))
+            break
+
+    return calibration
+
+
+
+##
+# @brief Enregistre la calibration d'une mesure d'une tribune dans stadiumBleacher.json (les autres champs sont conservés).
+#
+# @param stadiumBleacherId Identifiant de la tribune.
+# @param metric            Mesure ("acoustic").
+# @param offset            Nouveau décalage en dB (None pour ne pas le changer).
+# @param threshold         Nouveau seuil en dB (None pour ne pas le changer).
+# @param locked            Nouveau verrou (None pour ne pas le changer).
+#
+# @return dict La calibration enregistrée (cf. getStadiumBleacherCalibration()).
+#
+# @throws RuntimeError Si la tribune est inconnue ou si le fichier ne peut pas être écrit.
+##
+def saveStadiumBleacherCalibration(stadiumBleacherId, metric, offset=None, threshold=None, locked=None):
+    stadiumBleachers = _loadStadiumBleacherFile()
+
+    for item in stadiumBleachers:
+        if item["id"] == int(stadiumBleacherId):
+            saved = item.setdefault("calibration", {}).setdefault(metric, {"offset": 0.0, "threshold": CALIBRATION_FLOOR, "locked": False})
+            if offset is not None:
+                saved["offset"] = round(max(-CALIBRATION_LIMIT, min(CALIBRATION_LIMIT, float(offset))), 1)
+            if threshold is not None:
+                saved["threshold"] = round(max(CALIBRATION_FLOOR, min(CALIBRATION_MAX, float(threshold))), 1)
+            if locked is not None:
+                saved["locked"] = bool(locked)
+            saved.setdefault("threshold", CALIBRATION_FLOOR)
+
+            _writeStadiumBleacherFile(stadiumBleachers)
+            logger.info(f"[Data] Calibration enregistrée : tribune {stadiumBleacherId}, {metric} = {saved}")
+
+            return getStadiumBleacherCalibration(stadiumBleacherId, metric)
+
+    message = f"[Data] Aucune tribune de stade trouvé avec l'id '{stadiumBleacherId}'"
+    logger.error(message)
+    raise RuntimeError(message)
 
 
 
